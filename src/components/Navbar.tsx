@@ -101,7 +101,7 @@ export default function Navbar() {
               className="font-display text-xl md:text-2xl font-bold tracking-[0.45em] text-brand-offwhite group-hover:text-brand-cream transition-colors duration-300"
               style={{ fontFamily: "'Playfair Display', serif", letterSpacing: '0.4em' }}
             >
-              DRFTN
+              BOSS
             </span>
             <span className="text-[8px] font-body tracking-[0.3em] text-brand-gold uppercase font-medium mt-[-2px]">
               Clothing
