@@ -19,7 +19,7 @@ export const createOrderSchema = z.object({
     email: z.string().trim().email(),
     phone: z.string().trim().regex(/^[6-9]\d{9}$/, 'Invalid Indian mobile number'),
     address: z.object({
-      line1: z.string().trim().min(5).max(200),
+      line1: z.string().trim().min(1).max(200),
       line2: z.string().trim().optional(),
       city: z.string().trim().min(2).max(100),
       state: z.string().trim().min(2).max(100),
