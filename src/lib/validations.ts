@@ -15,15 +15,15 @@ export const createOrderSchema = z.object({
   })).min(1).max(20),
   discountCode: z.string().optional(),
   customerInfo: z.object({
-    name: z.string().min(2).max(100),
-    email: z.string().email(),
-    phone: z.string().regex(/^[6-9]\d{9}$/, 'Invalid Indian mobile number'),
+    name: z.string().trim().min(2).max(100),
+    email: z.string().trim().email(),
+    phone: z.string().trim().regex(/^[6-9]\d{9}$/, 'Invalid Indian mobile number'),
     address: z.object({
-      line1: z.string().min(5).max(200),
-      line2: z.string().optional(),
-      city: z.string().min(2).max(100),
-      state: z.string().min(2).max(100),
-      pincode: z.string().regex(/^\d{6}$/, 'Must be a 6-digit Indian PIN code')
+      line1: z.string().trim().min(5).max(200),
+      line2: z.string().trim().optional(),
+      city: z.string().trim().min(2).max(100),
+      state: z.string().trim().min(2).max(100),
+      pincode: z.string().trim().regex(/^\d{6}$/, 'Must be a 6-digit Indian PIN code')
     })
   })
 });

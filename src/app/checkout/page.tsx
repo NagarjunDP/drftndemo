@@ -142,15 +142,15 @@ export default function CheckoutPage() {
           discountCode: discountCode?.code || undefined,
           paymentMethod: paymentMethod,
           customerInfo: {
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
+            name: formData.name.trim(),
+            email: formData.email.trim(),
+            phone: formData.phone.trim(),
             address: {
-              line1: formData.line1,
-              line2: formData.line2 || undefined,
-              city: formData.city,
-              state: formData.state,
-              pincode: formData.pincode,
+              line1: formData.line1.trim(),
+              line2: formData.line2 ? formData.line2.trim() : undefined,
+              city: formData.city.trim(),
+              state: formData.state.trim(),
+              pincode: formData.pincode.trim(),
             },
           },
         }),
@@ -158,7 +158,12 @@ export default function CheckoutPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to place order');
+        console.error('Order creation failed:', errorData);
+        let errorMsg = errorData.error || 'Failed to place order';
+        if (errorData.details) {
+           errorMsg += ' (Check console for details)';
+        }
+        throw new Error(errorMsg);
       }
 
       const orderData = await res.json();
