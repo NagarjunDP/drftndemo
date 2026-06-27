@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, ArrowUpRight, ChevronRight } from 'lucide-react';
 import { dbService } from '@/lib/db';
 import { Product, Category } from '@/types';
@@ -70,11 +71,12 @@ function ProductCard({ prod, onQuickAdd }: { prod: Product; onQuickAdd: (e: Reac
     >
       {/* Image */}
       <div className="product-card-image aspect-[3/4] bg-brand-graphite overflow-hidden relative">
-        <img
+        <Image
           src={prod.images[0] || 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800'}
           alt={prod.name}
-          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
-          loading="lazy"
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
         />
 
         {/* Overlay */}
@@ -137,7 +139,6 @@ export default function Homepage() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [heroImageLoaded, setHeroImageLoaded] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
 
   // Section refs for reveal
@@ -211,11 +212,13 @@ export default function Homepage() {
       >
         {/* Background Image */}
         <div className="absolute inset-0">
-          <img
+          <Image
             src="/hero-clothing.png"
             alt="DRFTN Hero"
-            className={`w-full h-full object-cover object-center transition-opacity duration-1000 ${heroImageLoaded ? 'opacity-100' : 'opacity-0'}`}
-            onLoad={() => setHeroImageLoaded(true)}
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
           />
           {/* Gradient overlays */}
           <div className="absolute inset-0 bg-gradient-to-t from-brand-black via-brand-black/50 to-brand-black/20" />
@@ -355,11 +358,12 @@ export default function Homepage() {
                 className={`group reveal reveal-delay-${(i % 4) + 1} relative overflow-hidden bg-brand-graphite ${i === 0 ? 'row-span-1 md:col-span-2 aspect-[16/10] md:aspect-auto md:h-96' : 'aspect-[3/4]'
                   }`}
               >
-                <img
+                <Image
                   src={cat.image_url}
                   alt={cat.name}
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06] filter grayscale group-hover:grayscale-0"
-                  loading="lazy"
+                  fill
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06] filter grayscale group-hover:grayscale-0"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-brand-black/90 via-brand-black/30 to-transparent" />
 
@@ -515,20 +519,22 @@ export default function Homepage() {
 
         {/* Images Collage */}
         <div className="reveal reveal-delay-2 grid grid-cols-2 gap-3 h-[500px] md:h-[600px]">
-          <div className="overflow-hidden">
-            <img
+          <div className="overflow-hidden relative h-full">
+            <Image
               src="https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=600&auto=format&fit=crop&q=85"
               alt="Streetwear model"
-              className="w-full h-full object-cover hover:scale-105 transition-transform duration-700 ease-out grayscale hover:grayscale-0"
-              loading="lazy"
+              fill
+              sizes="(max-width: 768px) 50vw, 25vw"
+              className="object-cover hover:scale-105 transition-transform duration-700 ease-out grayscale hover:grayscale-0"
             />
           </div>
-          <div className="overflow-hidden mt-10">
-            <img
+          <div className="overflow-hidden relative h-full mt-10">
+            <Image
               src="https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600&auto=format&fit=crop&q=85"
               alt="Clothing detail"
-              className="w-full h-full object-cover hover:scale-105 transition-transform duration-700 ease-out grayscale hover:grayscale-0"
-              loading="lazy"
+              fill
+              sizes="(max-width: 768px) 50vw, 25vw"
+              className="object-cover hover:scale-105 transition-transform duration-700 ease-out grayscale hover:grayscale-0"
             />
           </div>
         </div>
@@ -539,10 +545,12 @@ export default function Homepage() {
           ════════════════════════════════════════ */}
       <section className="relative overflow-hidden border-t border-b border-brand-graphite">
         <div className="relative h-64 md:h-80">
-          <img
+          <Image
             src="https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=1600&auto=format&fit=crop&q=80"
             alt="DRFTN fabric detail"
-            className="absolute inset-0 w-full h-full object-cover grayscale opacity-40"
+            fill
+            sizes="100vw"
+            className="object-cover grayscale opacity-40"
           />
           <div className="absolute inset-0 bg-brand-black/70" />
           <div className="relative z-10 h-full flex items-center justify-center text-center px-6">
@@ -622,13 +630,14 @@ export default function Homepage() {
                 href="https://instagram.com/drftnclothing"
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`reveal reveal-delay-${(i % 4) + 1} aspect-square overflow-hidden block group bg-brand-graphite`}
+                className={`reveal reveal-delay-${(i % 4) + 1} aspect-square overflow-hidden block group bg-brand-graphite relative`}
               >
-                <img
+                <Image
                   src={url}
                   alt={`Lookbook photo ${i + 1}`}
-                  className="w-full h-full object-cover transition-all duration-500 grayscale group-hover:grayscale-0 group-hover:scale-105"
-                  loading="lazy"
+                  fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                  className="object-cover transition-all duration-500 grayscale group-hover:grayscale-0 group-hover:scale-105"
                 />
               </a>
             ))}
