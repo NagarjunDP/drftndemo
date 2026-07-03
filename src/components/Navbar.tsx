@@ -8,6 +8,7 @@ import { ShoppingBag, X, Menu } from 'lucide-react';
 import { useCartStore } from '../lib/cartStore';
 import { useAnimationStore } from '../lib/animationStore';
 import { SignInButton, UserButton, useUser } from '@clerk/nextjs';
+import AnnouncementTicker from './AnnouncementTicker';
 
 const NAV_LINKS = [
   { href: '/shop', label: 'Collection' },
@@ -122,26 +123,7 @@ export default function Navbar() {
   return (
     <>
       {/* ── Announcement Bar ── */}
-      <div
-        className="bg-brand-charcoal border-b border-brand-graphite text-brand-stone text-[10px] font-medium py-2.5 px-6 text-center tracking-[0.2em] uppercase select-none overflow-hidden"
-        role="marquee"
-        aria-label="Site announcements"
-      >
-        <div className="marquee-track pointer-events-none">
-          {[...Array(3)].map((_, i) => (
-            <span key={i} className="flex items-center gap-8 mr-8">
-              <span>Free Shipping Above ₹999</span>
-              <span className="text-brand-amber font-bold" aria-hidden="true">◆</span>
-              <span>COD Available Across India</span>
-              <span className="text-brand-amber font-bold" aria-hidden="true">◆</span>
-              <span>Born in Yelahanka · Built for the World</span>
-              <span className="text-brand-amber font-bold" aria-hidden="true">◆</span>
-              <span>Premium D2C Streetwear</span>
-              <span className="text-brand-amber font-bold" aria-hidden="true">◆</span>
-            </span>
-          ))}
-        </div>
-      </div>
+      <AnnouncementTicker />
 
       {/* ── Main Navigation ── */}
       <header
