@@ -73,6 +73,7 @@ function ProductCard({
   aspectClass?: string;
 }) {
   const [isAdding, setIsAdding] = useState(false);
+  const [isWishlisted, setIsWishlisted] = useState(false);
 
   const handleQuickAddClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -83,53 +84,68 @@ function ProductCard({
     onQuickAdd(e, prod);
   };
 
+  const handleWishlistClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsWishlisted(!isWishlisted);
+  };
+
   return (
     <Link
       href={`/shop/${prod.slug}`}
-      className="group product-card block"
+      className="group flex flex-col product-card text-left transition-all duration-300 active:scale-[0.99] w-full"
       aria-label={`View ${prod.name} — ₹${(prod.price / 100).toLocaleString('en-IN')}`}
+      style={{ transform: 'translate3d(0,0,0)', willChange: 'transform' }}
     >
-      {/* Image */}
-      <div className={`product-card-image bg-brand-graphite overflow-hidden relative ${aspectClass}`}>
+      {/* Image Container */}
+      <div className={`relative overflow-hidden bg-brand-black rounded-[24px] ${aspectClass}`}>
         <Image
           src={prod.images[0] || 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800'}
           alt={prod.name}
           fill
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          className="object-cover transition-transform duration-700 ease-luxury group-hover:scale-[1.05]"
+          sizes="(max-width: 768px) 85vw, 40vw"
+          loading="lazy"
+          className="object-cover transition-transform duration-[750ms] ease-luxury group-hover:scale-[1.04]"
         />
-        <div className="product-card-overlay" aria-hidden="true" />
 
-        {/* Sale Badge */}
-        {prod.compare_price && prod.compare_price > prod.price && (
-          <span className="absolute top-3 left-3 border border-brand-offwhite/30 text-brand-offwhite text-[9px] tracking-[0.2em] font-semibold py-1 px-2.5 uppercase bg-brand-black/60 backdrop-blur-sm z-10">
-            Sale
+        {/* Floating Detail Label */}
+        {prod.is_featured && (
+          <span className="absolute top-4 left-4 bg-brand-black/45 backdrop-blur-md text-brand-offwhite text-[8px] tracking-[0.2em] font-semibold py-1 px-2.5 rounded-full border border-white/10 uppercase z-10">
+            NEW
           </span>
         )}
 
-        {/* NEW DROP badge */}
-        {!prod.compare_price && prod.is_featured && (
-          <span className="absolute top-3 left-3 border border-brand-offwhite/20 text-brand-offwhite text-[9px] tracking-[0.2em] font-semibold py-1 px-2.5 uppercase bg-brand-black/60 backdrop-blur-sm z-10">
-            New Drop
-          </span>
-        )}
+        {/* Wishlist Heart Icon (Top-Right) */}
+        <button
+          onClick={handleWishlistClick}
+          className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-brand-black/40 backdrop-blur-md flex items-center justify-center border border-white/10 hover:border-brand-offwhite/50 transition-colors"
+          aria-label="Add to wishlist"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill={isWishlisted ? 'var(--color-red)' : 'none'}
+            stroke={isWishlisted ? 'var(--color-red)' : 'currentColor'}
+            strokeWidth="1.5"
+            className="w-4 h-4 text-brand-offwhite"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+          </svg>
+        </button>
 
-        {/* Corner-Anchored Quick Add */}
-        <div className="absolute bottom-3 right-3 z-10">
+        {/* Quick Add Plus Button (Bottom-Right) */}
+        <div className="absolute bottom-4 right-4 z-10">
           <button
             onClick={handleQuickAddClick}
             disabled={isAdding}
-            className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-300 shadow-lg group/btn relative ${
-              isAdding 
-                ? 'bg-brand-red border-brand-red text-white' 
-                : 'bg-brand-black/90 border-zinc-800 hover:border-brand-offwhite text-brand-offwhite hover:bg-brand-offwhite hover:text-brand-black'
-            } opacity-100 scale-100 md:opacity-0 md:scale-95 group-hover:md:opacity-100 group-hover:md:scale-100`}
+            className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-300 shadow-md ${
+              isAdding
+                ? 'bg-brand-red border-brand-red text-white'
+                : 'bg-brand-black/60 backdrop-blur-md border-white/10 hover:border-brand-offwhite text-brand-offwhite'
+            }`}
             id={`quick-add-${prod.id}`}
             aria-label={`Quick add ${prod.name} to cart`}
           >
-            <span className="absolute bottom-12 right-0 bg-brand-black border border-zinc-800 text-brand-offwhite text-[9px] tracking-widest uppercase py-1 px-2 opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
-              {isAdding ? 'Added' : 'Quick Add'}
-            </span>
             {isAdding ? (
               <span className="text-xs font-bold font-mono">✓</span>
             ) : (
@@ -139,10 +155,9 @@ function ProductCard({
         </div>
       </div>
 
-      {/* Details */}
-      <div className="pt-3 px-0 space-y-1">
-        <p className="text-[9px] text-brand-stone tracking-[0.2em] uppercase font-semibold font-body">{prod.category}</p>
-        <h3 className="text-xs font-medium text-brand-offwhite tracking-wide line-clamp-1 group-hover:text-brand-amber transition-colors duration-200 font-body uppercase">
+      {/* Product Details */}
+      <div className="pt-4 pb-2 space-y-1">
+        <h3 className="text-xs font-medium text-brand-offwhite tracking-wide uppercase line-clamp-1 font-body">
           {prod.name}
         </h3>
         <div className="flex items-center gap-2">
@@ -150,7 +165,7 @@ function ProductCard({
             ₹{(prod.price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
           </span>
           {prod.compare_price && prod.compare_price > prod.price && (
-            <span className="text-[10px] text-brand-stone line-through">
+            <span className="text-[10px] text-brand-stone line-through font-body">
               ₹{(prod.compare_price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
             </span>
           )}
@@ -293,96 +308,153 @@ export default function Homepage() {
       <AnnouncementTicker />
 
       {/* ═══════════════════════════════════════════
-          3. CATEGORIES — EDITORIAL GRID
+          3. CATEGORIES — EDITORIAL LAYOUT
           ═══════════════════════════════════════════ */}
       <section
         ref={categoryRef}
-        className="py-32 md:py-48 px-8 md:px-12 max-w-screen-2xl mx-auto w-full"
+        className="py-24 md:py-48 px-0 md:px-12 max-w-screen-2xl mx-auto w-full overflow-hidden"
         aria-labelledby="categories-heading"
       >
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6 reveal">
-          <div className="space-y-3">
-            <span className="eyebrow">Departments</span>
+        <div className="flex items-end justify-between mb-10 px-6 md:px-0">
+          <div className="space-y-2">
+            <span className="eyebrow before:content-none md:before:content-['']">Departments</span>
             <h2
               id="categories-heading"
-              className="text-brand-offwhite leading-none font-display uppercase"
-              style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)' }}
+              className="text-brand-offwhite leading-none font-display uppercase text-3xl md:text-5xl"
             >
               Shop by Category
             </h2>
           </div>
           <Link
             href="/shop"
-            className="group flex items-center gap-2 text-[10px] text-brand-stone hover:text-brand-offwhite tracking-[0.2em] uppercase font-bold transition-colors font-body border-animate pb-0.5"
+            className="group flex items-center gap-1 text-[10px] md:text-xs text-brand-stone hover:text-brand-offwhite tracking-[0.18em] uppercase font-semibold transition-colors font-body"
           >
-            View All
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
+            View All <span className="transition-transform group-hover:translate-x-1">→</span>
           </Link>
         </div>
 
-        {/* Category Grid */}
+        {/* Category Contents */}
         {categories.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-stretch bg-transparent">
-            {categories.map((cat, i) => {
-              // Custom gradient overlays per card index to vary visual presentation
-              const overlays = [
-                'bg-gradient-to-t from-brand-black/95 via-brand-black/45 to-transparent',
-                'bg-gradient-to-tr from-brand-black/90 via-brand-black/30 to-transparent',
-                'bg-gradient-to-tl from-brand-black/90 via-brand-black/30 to-transparent',
-                'bg-gradient-to-t from-brand-black/90 via-brand-black/40 to-brand-black/10'
-              ];
+          <>
+            {/* Mobile swipe carousel — Apple App Store style */}
+            <div 
+              className="flex md:hidden gap-5 overflow-x-auto snap-x snap-mandatory px-6 py-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full"
+              style={{ transform: 'translate3d(0,0,0)', willChange: 'transform' }}
+            >
+              {categories.map((cat, i) => {
+                const meta = cat.slug && (cat.slug.toLowerCase() in {
+                  'hoodies': 1, 'jackets': 1, 't-shirts': 1, 'denims': 1, 'accessories': 1
+                }) 
+                  ? {
+                      'hoodies': { eyebrow: 'ESSENTIALS', desc: 'Minimal Everyday Essentials' },
+                      'jackets': { eyebrow: 'TECHNICAL', desc: 'Technical Outerwear' },
+                      't-shirts': { eyebrow: 'HEAVYWEIGHT', desc: 'Heavyweight Cotton Tees' },
+                      'denims': { eyebrow: 'PREMIUM FIT', desc: 'Relaxed Premium Fit' },
+                      'accessories': { eyebrow: 'ACCENTS', desc: 'Industrial Accents' }
+                    }[cat.slug.toLowerCase() as 'hoodies'|'jackets'|'t-shirts'|'denims'|'accessories']
+                  : { eyebrow: 'NEW COLLECTION', desc: 'Relaxed Premium Fit' };
 
-              return (
-                <Link
-                  key={cat.id}
-                  href={`/shop?category=${cat.slug}`}
-                  className={`group reveal reveal-delay-${i + 1} relative overflow-hidden bg-brand-black rounded-lg border border-brand-graphite/40 shadow-xl ${
-                    i === 0 
-                      ? 'col-span-1 md:col-span-2 md:row-span-2 h-[290px] md:h-auto md:min-h-[500px]'
-                      : i === 1
-                      ? 'col-span-1 md:col-span-1 h-[230px] md:h-[242px]'
-                      : i === 2
-                      ? 'col-span-1 md:col-span-1 h-[230px] md:h-[242px]'
-                      : 'col-span-1 md:col-span-2 h-[290px] md:h-[242px]'
-                  }`}
-                  aria-label={`Shop ${cat.name} collection`}
-                >
-                  <Image
-                    src={cat.image_url || 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800'}
-                    alt={`${cat.name} clothing — DRFTN collection`}
-                    fill
-                    sizes={i === 0 ? '(max-width: 768px) 100vw, 50vw' : '(max-width: 768px) 50vw, 25vw'}
-                    className="object-cover transition-all duration-500 ease-in-out filter grayscale group-hover:grayscale-0 group-hover:scale-[1.03]"
-                  />
-                  <div className={`absolute inset-0 ${overlays[i % overlays.length]}`} aria-hidden="true" />
-                  <div className="absolute inset-0 bg-brand-black/20 group-hover:bg-transparent transition-colors duration-500" aria-hidden="true" />
+                return (
+                  <Link
+                    key={cat.id}
+                    href={`/shop?category=${cat.slug}`}
+                    className="w-[85vw] max-w-[360px] shrink-0 snap-start relative aspect-[3/4] rounded-[24px] overflow-hidden bg-brand-charcoal active:scale-98 transition-transform duration-300 flex flex-col justify-end"
+                    aria-label={`Shop ${cat.name} collection`}
+                  >
+                    {/* Background image */}
+                    <div className="absolute inset-0 z-0">
+                      <Image
+                        src={cat.image_url || 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800'}
+                        alt={cat.name}
+                        fill
+                        sizes="85vw"
+                        loading="lazy"
+                        className="object-cover"
+                      />
+                      {/* Gradient overlay to protect text contrast */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                    </div>
 
-                  <div className="absolute bottom-0 inset-x-0 p-4 sm:p-5 md:p-7">
-                    <p className="text-brand-stone text-[9px] tracking-[0.3em] uppercase font-body font-semibold mb-1">
-                      {String(i + 1).padStart(2, '0')}
-                    </p>
-                    <h3 className={`text-brand-offwhite font-bold mb-1.5 font-display uppercase tracking-wide leading-none ${
-                      i === 0
-                        ? 'text-xl sm:text-2xl md:text-3xl lg:text-4xl'
-                        : 'text-sm sm:text-base md:text-lg lg:text-xl'
-                    }`}>
-                      {cat.name}
-                    </h3>
-                    <span className="flex items-center gap-1.5 text-[8px] sm:text-[9px] text-brand-stone tracking-[0.25em] uppercase font-body font-semibold group-hover:text-brand-amber transition-colors duration-300">
-                      Shop Collection <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+                    {/* Capsule badge top-left */}
+                    <div className="absolute top-5 left-5 bg-brand-black/35 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+                      <span className="text-brand-stone-light text-[8px] font-bold tracking-[0.2em] uppercase">
+                        {meta.eyebrow}
+                      </span>
+                    </div>
+
+                    {/* Card content text */}
+                    <div className="relative z-10 p-6 flex flex-col items-start text-left">
+                      <span className="text-brand-stone text-[10px] font-mono tracking-widest block mb-2">
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <h3 className="text-brand-offwhite text-[32px] font-extrabold tracking-tight uppercase leading-none font-display mb-1.5">
+                        {cat.name}
+                      </h3>
+                      <p className="text-[12px] uppercase tracking-[0.18em] font-body font-semibold text-brand-stone-light mb-4">
+                        {meta.desc}
+                      </p>
+                      <span className="text-[10px] tracking-[0.2em] font-bold text-brand-offwhite uppercase flex items-center gap-1">
+                        Explore <span className="text-xs">→</span>
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Desktop visual grid — polished layout */}
+            <div className="hidden md:grid grid-cols-2 md:grid-cols-4 gap-5 items-stretch bg-transparent">
+              {categories.map((cat, i) => {
+                const isLargeCard = i === 0 || i === 3;
+                const aspectHeightClass = i === 0 
+                  ? 'col-span-1 md:col-span-2 md:row-span-2 min-h-[520px]' 
+                  : i === 3 
+                  ? 'col-span-1 md:col-span-2 min-h-[250px]' 
+                  : 'col-span-1 min-h-[250px]';
+
+                return (
+                  <Link
+                    key={cat.id}
+                    href={`/shop?category=${cat.slug}`}
+                    className={`group relative overflow-hidden bg-brand-black rounded-[24px] border border-white/5 shadow-xl transition-all duration-300 active:scale-[0.99] flex flex-col justify-end ${aspectHeightClass}`}
+                    aria-label={`Shop ${cat.name} collection`}
+                  >
+                    <div className="absolute inset-0 z-0">
+                      <Image
+                        src={cat.image_url || 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800'}
+                        alt={cat.name}
+                        fill
+                        sizes={isLargeCard ? '(max-width: 768px) 100vw, 50vw' : '25vw'}
+                        className="object-cover transition-transform duration-700 ease-luxury group-hover:scale-[1.03]"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-brand-black/80 via-brand-black/20 to-transparent" />
+                    </div>
+
+                    <div className="relative z-10 p-7 text-left">
+                      <p className="text-brand-stone text-[10px] tracking-[0.3em] uppercase font-body font-semibold mb-1">
+                        {String(i + 1).padStart(2, '0')}
+                      </p>
+                      <h3 className={`text-brand-offwhite font-bold mb-1.5 font-display uppercase tracking-wide leading-none ${
+                        isLargeCard ? 'text-2xl md:text-3xl' : 'text-lg md:text-xl'
+                      }`}>
+                        {cat.name}
+                      </h3>
+                      <span className="flex items-center gap-1 text-[9px] text-brand-stone tracking-[0.25em] uppercase font-body font-semibold group-hover:text-brand-amber transition-colors duration-300">
+                        Shop Collection <span className="transition-transform group-hover:translate-x-1">→</span>
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-stretch" aria-busy="true" aria-label="Loading categories">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-stretch px-6 md:px-0" aria-busy="true" aria-label="Loading categories">
             {[...Array(4)].map((_, i) => (
               <div 
                 key={i} 
-                className={`shimmer rounded-lg ${
+                className={`shimmer rounded-[24px] ${
                   i === 0 
                     ? 'col-span-1 md:col-span-2 md:row-span-2 h-[290px] md:min-h-[500px]'
                     : i === 1 || i === 2
@@ -396,61 +468,74 @@ export default function Homepage() {
       </section>
 
       {/* ═══════════════════════════════════════════
-          4. FEATURED PRODUCTS
+          4. LATEST DROP (FEATURED PRODUCTS)
           ═══════════════════════════════════════════ */}
       <section
         ref={featuredRef}
-        className="py-32 md:py-48 px-8 md:px-12 border-t border-brand-graphite bg-brand-black w-full"
+        className="py-24 md:py-48 px-0 md:px-12 border-t border-brand-graphite bg-brand-black w-full overflow-hidden"
         aria-labelledby="featured-heading"
       >
         <div className="max-w-screen-2xl mx-auto">
           {/* Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-14 gap-6 reveal">
-            <div className="space-y-3">
-              <span className="eyebrow">01 — Exclusives</span>
+          <div className="flex items-end justify-between mb-10 px-6 md:px-0">
+            <div className="space-y-2">
+              <span className="eyebrow before:content-none md:before:content-['']">01 — Exclusives</span>
               <h2
                 id="featured-heading"
-                className="text-brand-offwhite leading-none font-display uppercase"
-                style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)' }}
+                className="text-brand-offwhite leading-none font-display uppercase text-3xl md:text-5xl"
               >
-                Hottest Drops
+                Latest Drop
               </h2>
             </div>
             <Link
               href="/shop"
-              className="group flex items-center gap-2 text-[10px] text-brand-stone hover:text-brand-offwhite tracking-[0.2em] uppercase font-bold transition-colors font-body border-animate pb-0.5"
+              className="group flex items-center gap-1 text-[10px] md:text-xs text-brand-stone hover:text-brand-offwhite tracking-[0.18em] uppercase font-semibold transition-colors font-body"
             >
-              View All Products
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
+              View All <span className="transition-transform group-hover:translate-x-1">→</span>
             </Link>
           </div>
 
           {/* Products */}
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6" aria-busy="true" aria-label="Loading products">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 px-6 md:px-0" aria-busy="true" aria-label="Loading products">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="space-y-3">
-                  <div className="aspect-[3/4] shimmer" />
+                  <div className="aspect-[3/4] shimmer rounded-[24px]" />
                   <div className="h-3 shimmer w-1/2" />
                   <div className="h-4 shimmer w-3/4" />
                 </div>
               ))}
             </div>
           ) : featuredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-5">
-              {featuredProducts.map((prod, i) => {
-                const colSpanClass = i === 0 || i === 3 ? 'md:col-span-7' : 'md:col-span-5';
-                const aspectClass = i === 0 || i === 3 ? 'aspect-[16/10] md:aspect-[3/2]' : 'aspect-[3/4]';
-                return (
-                  <div key={prod.id} className={`reveal reveal-delay-${(i % 4) + 1} ${colSpanClass}`}>
-                    <ProductCard prod={prod} onQuickAdd={handleQuickAdd} aspectClass={aspectClass} />
+            <>
+              {/* Mobile snap carousel */}
+              <div 
+                className="flex md:hidden gap-5 overflow-x-auto snap-x snap-mandatory px-6 py-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full"
+                style={{ transform: 'translate3d(0,0,0)', willChange: 'transform' }}
+              >
+                {featuredProducts.map((prod) => (
+                  <div key={prod.id} className="w-[82vw] shrink-0 snap-start">
+                    <ProductCard prod={prod} onQuickAdd={handleQuickAdd} aspectClass="aspect-[3/4]" />
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+
+              {/* Desktop grid layout */}
+              <div className="hidden md:grid grid-cols-12 gap-5">
+                {featuredProducts.map((prod, i) => {
+                  const colSpanClass = i === 0 || i === 3 ? 'md:col-span-7' : 'md:col-span-5';
+                  const aspectClass = i === 0 || i === 3 ? 'aspect-[16/10] md:aspect-[3/2]' : 'aspect-[3/4]';
+                  return (
+                    <div key={prod.id} className={`reveal reveal-delay-${(i % 4) + 1} ${colSpanClass}`}>
+                      <ProductCard prod={prod} onQuickAdd={handleQuickAdd} aspectClass={aspectClass} />
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           ) : (
             /* Empty state for featured products */
-            <div className="text-center py-20 border border-brand-graphite">
+            <div className="text-center py-20 border border-brand-graphite mx-6 md:mx-0 rounded-[24px]">
               <p className="text-brand-stone text-xs tracking-widest uppercase font-body">New drops coming soon</p>
               <Link href="/shop" className="btn-outline mt-6 inline-flex">
                 <span>Browse All</span>

@@ -70,6 +70,15 @@ export default function HeroSection({
     return () => clearInterval(t);
   }, [imagesLeft.length]);
 
+  const [isMobile, setIsMobile] = useState(true);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   /* Scroll-linked parallax */
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -77,6 +86,9 @@ export default function HeroSection({
   });
   const bgY = useTransform(scrollYProgress, [0, 1], ['0%', '15%']);
   const textY = useTransform(scrollYProgress, [0, 1], ['0%', '6%']);
+
+  const finalBgY = isMobile ? '0%' : bgY;
+  const finalTextY = isMobile ? '0%' : textY;
 
   return (
     <section
@@ -91,7 +103,7 @@ export default function HeroSection({
           ══════════════════════════════════════════ */}
       <motion.div
         className="absolute inset-0 flex h-full w-full z-[1]"
-        style={{ y: bgY }}
+        style={{ y: finalBgY }}
       >
         {/* Left panel — full width on mobile, 60% on desktop */}
         <div className="relative w-full md:w-[60%] h-full overflow-hidden">
@@ -212,7 +224,7 @@ export default function HeroSection({
           ══════════════════════════════════════════ */}
       <motion.div
         className="absolute inset-x-0 z-[4] flex justify-start pointer-events-none select-none px-6 md:px-12 lg:px-24 top-[15%] md:top-[20%]"
-        style={{ y: textY }}
+        style={{ y: finalTextY }}
         aria-hidden="true"
       >
         <div className="max-w-4xl">
