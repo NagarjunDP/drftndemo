@@ -102,22 +102,22 @@ export default function HeroSection(props: HeroSectionProps) {
           duration: 0.08
         });
       };
-      
+
       flickerTimeout = setTimeout(triggerFlicker, 3000);
     }
 
     // GSAP staggered headline animation removed (now handled by Framer Motion)
 
     // 5. Fade + slide up for eyebrow, subcopy, and CTA buttons
-    gsap.fromTo('.hero-fade-in', 
+    gsap.fromTo('.hero-fade-in',
       { opacity: 0, y: 10 },
-      { 
-        opacity: 1, 
-        y: 0, 
-        duration: 0.8, 
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.8,
         delay: 0.45,
         stagger: 0.1,
-        ease: 'power3.out' 
+        ease: 'power3.out'
       }
     );
 
@@ -174,7 +174,7 @@ export default function HeroSection(props: HeroSectionProps) {
   }, []);
 
   return (
-    <div 
+    <div
       ref={heroRef}
       className="relative w-full h-[80vh] sm:h-[95vh] min-h-[500px] sm:min-h-[600px] bg-black overflow-hidden flex items-center justify-start px-7 md:px-16 lg:px-24"
     >
@@ -193,10 +193,10 @@ export default function HeroSection(props: HeroSectionProps) {
           }}
         />
       )}
-      
+
       {/* ── Background Photographic Asset & Filters (5 Parallax Layers) ── */}
       <div className="absolute inset-0 z-0 overflow-hidden select-none pointer-events-none">
-        
+
         {/* Layer 1 (Backmost - Skyline silhouette) */}
         <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="0.1" style={{ willChange: 'transform' }}>
           <div className="absolute inset-0 w-full h-full hero-cursor-layer" data-depth="0.1" style={{ willChange: 'transform' }}>
@@ -236,8 +236,8 @@ export default function HeroSection(props: HeroSectionProps) {
                   fontWeight: 900,
                   fontStyle: 'italic',
                   fontSize: 'clamp(2.8rem, 12vw, 4rem)',
-                  color: 'rgba(255,255,255,0.65)',
-                  textShadow: '0 0 40px rgba(255,255,255,0.22)',
+                  color: '#ffffff',
+                  textShadow: '0 0 30px rgba(255,255,255,0.4), 0 0 10px rgba(255,255,255,0.2)',
                   letterSpacing: '-0.02em',
                 }}
               >
@@ -250,8 +250,8 @@ export default function HeroSection(props: HeroSectionProps) {
                   fontWeight: 800,
                   fontStyle: 'normal',
                   fontSize: 'clamp(1.2rem, 4vw, 1.6rem)',
-                  color: 'rgba(255,255,255,0.85)',
-                  textShadow: '0 0 20px rgba(255,255,255,0.3)',
+                  color: '#ffffff',
+                  textShadow: '0 0 30px rgba(255,255,255,0.4), 0 0 10px rgba(255,255,255,0.2)',
                   letterSpacing: '0.25em',
                   margin: '0.4rem 0',
                 }}
@@ -266,7 +266,7 @@ export default function HeroSection(props: HeroSectionProps) {
                   fontStyle: 'normal',
                   fontSize: 'clamp(2.8rem, 12vw, 4rem)',
                   color: '#ffffff',
-                  textShadow: '0 0 60px rgba(255,255,255,0.28), 0 0 20px rgba(255,255,255,0.12)',
+                  textShadow: '0 0 50px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.2)',
                   letterSpacing: '-0.02em',
                 }}
               >
@@ -292,8 +292,8 @@ export default function HeroSection(props: HeroSectionProps) {
 
         {/* Layer 4 (Atmospheric particles - chains/mist) */}
         <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="0.7" style={{ willChange: 'transform' }}>
-          <div 
-            className="absolute inset-0 w-full h-full hero-cursor-layer" 
+          <div
+            className="absolute inset-0 w-full h-full hero-cursor-layer"
             data-depth="0.7"
             style={{ mixBlendMode: 'screen', opacity: 0.2, willChange: 'transform' }}
           >
@@ -310,8 +310,8 @@ export default function HeroSection(props: HeroSectionProps) {
 
         {/* Layer 5 (Foreground rain/bokeh) */}
         <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="1.0" style={{ willChange: 'transform' }}>
-          <div 
-            className="absolute inset-0 w-full h-full hero-cursor-layer" 
+          <div
+            className="absolute inset-0 w-full h-full hero-cursor-layer"
             data-depth="1.0"
             style={{ mixBlendMode: 'screen', opacity: 0.25, willChange: 'transform' }}
           >
@@ -327,13 +327,13 @@ export default function HeroSection(props: HeroSectionProps) {
         </div>
 
         {/* 1. Vignette Overlay (Radial corner darkening) */}
-        <div 
-          className="absolute inset-0 z-10 pointer-events-none" 
+        <div
+          className="absolute inset-0 z-10 pointer-events-none"
           style={{ background: 'radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.6) 70%, rgba(0, 0, 0, 1) 100%)' }}
         />
 
         {/* 2. Linear Legibility Gradient (Transparent top third to dark bottom third) */}
-        <div 
+        <div
           className="absolute inset-0 z-10 pointer-events-none"
           style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,1) 100%)' }}
         />
@@ -350,12 +350,12 @@ export default function HeroSection(props: HeroSectionProps) {
       {/* ── Text Copy & CTA Block ── */}
       <div className="relative z-20 max-w-4xl text-left pr-7 md:pr-12 pointer-events-none -translate-y-10 sm:translate-y-0">
         <div className="flex flex-col pointer-events-auto">
-          
+
           {/* Eyebrow Label (margin: 16px to headline) */}
           <span className="hero-fade-in opacity-0 text-white/60 text-xs md:text-sm font-bold tracking-[0.25em] uppercase block font-body mb-2 md:mb-4">
             DRFTN ORIGINALS — MID-SEASON 02
           </span>
-          
+
           {/* Integrated Typography: Large font with outline middle word overlapping the model subject */}
           {/* Mobile version (two stacked lines, tighter spacing) */}
           <h1 className="text-white text-[clamp(2.3rem,11vw,4rem)] font-black tracking-tighter uppercase leading-[0.95] font-display flex flex-col mb-3 select-none md:hidden">
@@ -545,7 +545,7 @@ export default function HeroSection(props: HeroSectionProps) {
           <span className="text-zinc-800">•</span>
         </div>
       </div>
-      
+
     </div>
   );
 }
