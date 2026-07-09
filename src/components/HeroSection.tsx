@@ -138,15 +138,15 @@ export default function HeroSection(props: HeroSectionProps) {
     const driftContainer = hero.querySelector('.hero-drift-container');
     if (driftContainer) {
       const isMobile = window.innerWidth < 768;
-      const driftX = isTouchDevice ? 160 : 320;
+      const driftX = isMobile ? 240 : (isTouchDevice ? 160 : 320);
       const driftTween = gsap.fromTo(driftContainer,
         { x: 0, opacity: 1 },
         {
           scrollTrigger: {
             trigger: hero,
             start: 'top top',
-            end: isMobile ? '+=180' : '+=400', // completes very quickly on mobile (180px)
-            scrub: isMobile ? 0.2 : 0.5, // immediate responsiveness, no lag on mobile
+            end: isMobile ? '+=120' : '+=400', // completes immediately within 120px of scroll on mobile
+            scrub: isMobile ? true : 0.5, // immediate responsiveness (no lag) on mobile
           },
           x: driftX, // slide rightward (outward to the right)
           opacity: 0, // fades out as it slides out of the hero boundary
@@ -228,7 +228,7 @@ export default function HeroSection(props: HeroSectionProps) {
         {/* ── Transitional Beat: Drift in Style (Layer 2.5: Physically behind Layer 3 model) ── */}
         <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="0.35" style={{ willChange: 'transform' }}>
           <div className="absolute inset-0 w-full h-full hero-cursor-layer" data-depth="0.35" style={{ willChange: 'transform' }}>
-            <div className="absolute top-[28%] md:top-[32%] right-[6%] sm:right-[8%] md:right-[10%] lg:right-[12%] z-10 pointer-events-none hero-drift-container text-right flex flex-col items-end select-none">
+            <div className="absolute top-[58%] md:top-[32%] right-[6%] sm:right-[8%] md:right-[10%] lg:right-[12%] z-10 pointer-events-none hero-drift-container text-right flex flex-col items-end select-none">
               <span className="hero-drift-word opacity-0 block font-body font-light italic text-zinc-400 text-[clamp(2.5rem,11vw,3.5rem)] sm:text-[clamp(3rem,8vw,4rem)] lg:text-[clamp(3.8rem,5.5vw,4.8rem)] leading-[0.8] tracking-tighter uppercase">
                 Drift
               </span>

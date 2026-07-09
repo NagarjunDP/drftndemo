@@ -53,7 +53,7 @@ export default function MobileNavbar() {
     if (isOpen) {
       setSweepActive(true);
       const sweepTimer = setTimeout(() => setSweepActive(false), 500);
-      const settleTimer = setTimeout(() => setIsSettled(true), 250);
+      const settleTimer = setTimeout(() => setIsSettled(true), 120);
       return () => {
         clearTimeout(sweepTimer);
         clearTimeout(settleTimer);
@@ -132,46 +132,18 @@ export default function MobileNavbar() {
 
   return (
     <>
-      {/* ── BACKGROUND SCRUM OVERLAY ── */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[2400] bg-black/70 backdrop-blur-[8px] md:hidden"
-            onClick={() => setActivePanel(null)}
-          >
-            {/* Drifting Ambient Glow Blob (Red/White gradient) */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <motion.div
-                className="absolute top-1/3 left-1/4 w-80 h-80 rounded-full bg-white/5 blur-[110px]"
-                animate={{
-                  x: [0, 60, -40, 0],
-                  y: [0, -80, 50, 0],
-                }}
-                transition={{
-                  duration: 20,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              />
-              <motion.div
-                className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-white/5 blur-[120px]"
-                animate={{
-                  x: [0, -50, 40, 0],
-                  y: [0, 70, -60, 0],
-                }}
-                transition={{
-                  duration: 24,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ── BACKGROUND SCRIM OVERLAY — single CSS-transition layer, no separate Framer mount/unmount to prevent flicker ── */}
+      <div
+        className="fixed inset-0 z-[2400] md:hidden"
+        style={{
+          backgroundColor: 'rgba(0,0,0,0.72)',
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? 'auto' : 'none',
+          transition: 'opacity 0.28s cubic-bezier(0.22,1,0.36,1)',
+          willChange: 'opacity',
+        }}
+        onClick={() => setActivePanel(null)}
+      />
 
       {/* ── FLOATING MORPHING CAPSULE ── */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2500] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden">
@@ -195,8 +167,9 @@ export default function MobileNavbar() {
           transition={{
             layout: {
               type: 'spring',
-              stiffness: 260,
-              damping: 24,
+              stiffness: 220,
+              damping: 32,
+              mass: 0.9,
             },
             scale: { repeat: isOpen ? 0 : Infinity, duration: 4, ease: 'easeInOut' },
             boxShadow: { repeat: isOpen ? 0 : Infinity, duration: 4, ease: 'easeInOut' },
@@ -219,10 +192,10 @@ export default function MobileNavbar() {
               {isOpen && isSettled && (
                 <motion.div
                   key={activePanel}
-                  initial={{ opacity: 0, scale: 0.97 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.97 }}
-                  transition={{ duration: 0.18, ease: 'easeInOut' }}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
                   className="flex-1 flex flex-col p-6 overflow-y-auto"
                 >
                   {/* Close button inside sheet */}
