@@ -228,7 +228,7 @@ export default function HeroSection(props: HeroSectionProps) {
         {/* ── Transitional Beat: Drift in Style (Layer 2.5: Physically behind Layer 3 model) ── */}
         <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="0.35" style={{ willChange: 'transform' }}>
           <div className="absolute inset-0 w-full h-full hero-cursor-layer" data-depth="0.35" style={{ willChange: 'transform' }}>
-            <div className="absolute top-[58%] md:top-[32%] right-[6%] sm:right-[8%] md:right-[10%] lg:right-[12%] z-10 pointer-events-none hero-drift-container text-right flex flex-col items-end select-none">
+            <div className="absolute top-[44%] md:top-[32%] right-[6%] sm:right-[8%] md:right-[10%] lg:right-[12%] z-10 pointer-events-none hero-drift-container text-right flex flex-col items-end select-none">
               <span
                 className="hero-drift-word opacity-0 block uppercase leading-[0.82] tracking-[-0.02em]"
                 style={{
@@ -236,8 +236,8 @@ export default function HeroSection(props: HeroSectionProps) {
                   fontWeight: 900,
                   fontStyle: 'italic',
                   fontSize: 'clamp(2.8rem, 12vw, 4rem)',
-                  color: 'rgba(255,255,255,0.55)',
-                  textShadow: '0 0 40px rgba(255,255,255,0.18)',
+                  color: 'rgba(255,255,255,0.65)',
+                  textShadow: '0 0 40px rgba(255,255,255,0.22)',
                   letterSpacing: '-0.02em',
                 }}
               >
@@ -247,12 +247,13 @@ export default function HeroSection(props: HeroSectionProps) {
                 className="hero-drift-word opacity-0 block uppercase"
                 style={{
                   fontFamily: 'var(--font-mono, monospace)',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   fontStyle: 'normal',
-                  fontSize: 'clamp(0.9rem, 3.5vw, 1.3rem)',
-                  color: 'rgba(255,255,255,0.35)',
-                  letterSpacing: '0.38em',
-                  margin: '0.35rem 0',
+                  fontSize: 'clamp(1.2rem, 4vw, 1.6rem)',
+                  color: 'rgba(255,255,255,0.85)',
+                  textShadow: '0 0 20px rgba(255,255,255,0.3)',
+                  letterSpacing: '0.25em',
+                  margin: '0.4rem 0',
                 }}
               >
                 in
