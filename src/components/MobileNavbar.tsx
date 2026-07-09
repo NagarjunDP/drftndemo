@@ -149,26 +149,25 @@ export default function MobileNavbar() {
       <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[2500] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden">
         <motion.div
           layout
-          className={`backdrop-blur-[24px] saturate-[160%] overflow-hidden flex flex-col justify-between pointer-events-auto transition-colors duration-300 ${
-            isOpen ? 'bg-[#121212]/95 w-full h-[60vh] rounded-[28px] p-0' : 'bg-[#2a2a2a]/90 w-[220px] h-[46px] rounded-full p-1'
-          }`}
+          className={`bg-black/80 backdrop-blur-[32px] saturate-[180%] overflow-hidden flex flex-col justify-between pointer-events-auto ${isOpen ? 'w-full h-[60vh] rounded-[28px] p-0' : 'w-[230px] h-[52px] rounded-full px-0.5'
+            }`}
           style={{
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.12)',
             boxShadow: isOpen
               ? '0 0 0 1px rgba(255,255,255,0.06), 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)'
-              : '0 0 0 1px rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 20px rgba(255,255,255,0.02)',
+              : '0 0 0 1px rgba(255,255,255,0.06), 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(255,255,255,0.05)',
             willChange: isAnimating ? 'transform' : 'auto',
           }}
           animate={
             !isOpen
               ? {
-                  scale: [1, 1.012, 1],
-                  boxShadow: [
-                    '0 0 20px rgba(255,255,255,0.06), 0 0 16px rgba(239,68,68,0.08)',
-                    '0 0 26px rgba(255,255,255,0.12), 0 0 22px rgba(239,68,68,0.18)',
-                    '0 0 20px rgba(255,255,255,0.06), 0 0 16px rgba(239,68,68,0.08)',
-                  ],
-                }
+                scale: [1, 1.012, 1],
+                boxShadow: [
+                  '0 0 20px rgba(255,255,255,0.06), 0 0 16px rgba(239,68,68,0.08)',
+                  '0 0 26px rgba(255,255,255,0.12), 0 0 22px rgba(239,68,68,0.18)',
+                  '0 0 20px rgba(255,255,255,0.06), 0 0 16px rgba(239,68,68,0.08)',
+                ],
+              }
               : {}
           }
           transition={{
@@ -255,11 +254,10 @@ export default function MobileNavbar() {
                                 transition={{ type: 'spring', stiffness: 450, damping: 12 }}
                                 className="flex items-center text-left"
                               >
-                                <span className={`text-[10px] font-mono mr-3 tracking-normal transition-all duration-200 ${
-                                  isLinkSelected
+                                <span className={`text-[10px] font-mono mr-3 tracking-normal transition-all duration-200 ${isLinkSelected
                                     ? 'text-white text-shadow-[0_0_8px_rgba(255,255,255,0.7)] font-bold scale-110'
                                     : 'text-white/60'
-                                }`}>
+                                  }`}>
                                   {String(idx + 1).padStart(2, '0')}
                                 </span>
                                 {link.label}
@@ -391,9 +389,8 @@ export default function MobileNavbar() {
 
           {/* ── CAPSULE CONTROL TABS (Always visible at the bottom) ── */}
           <div
-            className={`w-full flex items-center border-t border-white/5 select-none transition-all duration-300 ${
-              isOpen ? 'h-[56px] px-6 justify-between' : 'h-full justify-center'
-            }`}
+            className={`w-full flex items-center border-t border-white/5 select-none transition-all duration-300 ${isOpen ? 'h-[56px] px-6 justify-between' : 'h-full justify-center'
+              }`}
           >
             {/* Left: WhatsApp Quick Contact (Open state only) */}
             <AnimatePresence>
@@ -417,24 +414,26 @@ export default function MobileNavbar() {
             </AnimatePresence>
 
             {/* Right Side: MENU | SEARCH Tabs */}
-            <div className={`flex items-center ${isOpen ? 'gap-2 justify-end' : 'w-full h-full gap-1'}`}>
+            <div className={`flex items-center gap-2 ${isOpen ? '' : 'w-full'}`}>
               <button
                 onClick={() => handlePillClick('menu')}
-                className={`h-full flex items-center justify-center gap-2 rounded-full font-sans text-xs font-semibold lowercase tracking-wide transition-all duration-200 pointer-events-auto active:scale-95 ${
-                  isOpen
-                    ? activePanel === 'menu'
-                      ? 'bg-black text-white px-5 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.3)]'
-                      : 'bg-transparent text-zinc-400 px-4 py-2'
-                    : activePanel === 'menu'
-                      ? 'flex-1 bg-black text-white px-4 shadow-[0_2px_8px_rgba(0,0,0,0.3)]'
-                      : 'flex-1 bg-transparent text-white/90 hover:text-white px-4'
+                className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
+                  activePanel === 'menu'
+                    ? 'bg-white text-black shadow-[0_4px_16px_rgba(255,255,255,0.25)]'
+                    : 'bg-white/[0.05] border border-white/10 text-white/80 hover:text-white'
                 }`}
               >
                 {/* Morphing Hamburger Icon */}
-                <svg width="12" height="12" viewBox="0 0 14 14" className="flex-shrink-0" style={{ stroke: '#ef4444' }}>
+                <svg 
+                  width="12" 
+                  height="12" 
+                  viewBox="0 0 14 14" 
+                  className="flex-shrink-0 transition-colors duration-200" 
+                  style={{ stroke: activePanel === 'menu' ? '#000000' : '#ffffff' }}
+                >
                   <motion.path
                     fill="transparent"
-                    strokeWidth="2.2"
+                    strokeWidth="1.8"
                     strokeLinecap="round"
                     d="M 2 3 L 12 3"
                     animate={activePanel === 'menu' ? { d: 'M 2 2 L 12 12' } : { d: 'M 2 3 L 12 3' }}
@@ -442,7 +441,7 @@ export default function MobileNavbar() {
                   />
                   <motion.path
                     fill="transparent"
-                    strokeWidth="2.2"
+                    strokeWidth="1.8"
                     strokeLinecap="round"
                     d="M 2 7 L 12 7"
                     animate={activePanel === 'menu' ? { opacity: 0 } : { opacity: 1 }}
@@ -450,30 +449,30 @@ export default function MobileNavbar() {
                   />
                   <motion.path
                     fill="transparent"
-                    strokeWidth="2.2"
+                    strokeWidth="1.8"
                     strokeLinecap="round"
                     d="M 2 11 L 12 11"
                     animate={activePanel === 'menu' ? { d: 'M 2 12 L 12 2' } : { d: 'M 2 11 L 12 11' }}
                     transition={{ duration: 0.25 }}
                   />
                 </svg>
-                <span>menu</span>
+                <span>MENU</span>
               </button>
 
               <button
                 onClick={() => handlePillClick('search')}
-                className={`h-full flex items-center justify-center gap-1.5 rounded-full font-sans text-xs font-semibold lowercase tracking-wide transition-all duration-200 pointer-events-auto active:scale-95 ${
-                  isOpen
-                    ? activePanel === 'search'
-                      ? 'bg-black text-white px-5 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.3)]'
-                      : 'bg-transparent text-zinc-400 px-4 py-2'
-                    : activePanel === 'search'
-                      ? 'flex-1 bg-black text-white px-4 shadow-[0_2px_8px_rgba(0,0,0,0.3)]'
-                      : 'flex-1 bg-transparent text-white/90 hover:text-white px-4'
+                className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
+                  activePanel === 'search'
+                    ? 'bg-white text-black shadow-[0_4px_16px_rgba(255,255,255,0.25)]'
+                    : 'bg-white/[0.05] border border-white/10 text-zinc-300 hover:text-white'
                 }`}
               >
-                <Search className="w-3.5 h-3.5 stroke-[2.2] text-white flex-shrink-0" />
-                <span>search</span>
+                <Search 
+                  className={`w-3.5 h-3.5 stroke-[2.2] flex-shrink-0 transition-colors duration-200 ${
+                    activePanel === 'search' ? 'text-black' : 'text-white'
+                  }`} 
+                />
+                <span>SEARCH</span>
               </button>
             </div>
           </div>
