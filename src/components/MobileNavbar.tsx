@@ -417,13 +417,13 @@ export default function MobileNavbar() {
             </AnimatePresence>
 
             {/* Right Side: MENU | SEARCH Tabs */}
-            <div className={`flex items-center ${isOpen ? 'gap-1' : 'w-full'}`}>
+            <div className={`flex items-center gap-2 ${isOpen ? '' : 'w-full'}`}>
               <button
                 onClick={() => handlePillClick('menu')}
-                className={`flex-1 px-2.5 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-[transform,background-color,color,box-shadow] duration-350 ease-streetwear pointer-events-auto active:scale-95 active:bg-white/5 active:text-white ${
+                className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
                   activePanel === 'menu'
-                    ? 'text-white bg-white/5 font-bold shadow-[0_0_10px_rgba(255,255,255,0.2)]'
-                    : 'text-zinc-400 md:hover:text-white'
+                    ? 'bg-white/90 text-black shadow-[0_0_16px_rgba(255,255,255,0.35)]'
+                    : 'bg-white text-black shadow-[0_2px_12px_rgba(255,255,255,0.18)]'
                 }`}
               >
                 {/* Morphing Hamburger Icon */}
@@ -456,15 +456,12 @@ export default function MobileNavbar() {
                 <span>MENU</span>
               </button>
 
-              {/* Tab Divider */}
-              <div className="w-[1px] h-4 bg-white/10 flex-shrink-0" />
-
               <button
                 onClick={() => handlePillClick('search')}
-                className={`flex-1 px-2.5 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-[transform,background-color,color,box-shadow] duration-350 ease-streetwear pointer-events-auto active:scale-95 active:bg-white/5 active:text-white ${
+                className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
                   activePanel === 'search'
-                    ? 'text-white bg-white/5 font-bold shadow-[0_0_10px_rgba(255,255,255,0.2)]'
-                    : 'text-zinc-400 md:hover:text-white'
+                    ? 'text-white bg-white/10 shadow-[0_0_10px_rgba(255,255,255,0.15)]'
+                    : 'text-zinc-300 bg-white/[0.05] border border-white/10'
                 }`}
               >
                 <Search className="w-3.5 h-3.5 stroke-[2.2] flex-shrink-0" />
