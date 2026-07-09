@@ -417,10 +417,10 @@ export default function MobileNavbar() {
             <div className={`flex items-center gap-2 ${isOpen ? '' : 'w-full'}`}>
               <button
                 onClick={() => handlePillClick('menu')}
-                className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
-                  activePanel === 'menu'
-                    ? 'bg-white text-black shadow-[0_4px_16px_rgba(255,255,255,0.25)]'
-                    : 'bg-white/[0.05] border border-white/10 text-white/80 hover:text-white'
+                className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10.5px] font-display font-extrabold tracking-[0.18em] uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
+                  activePanel === 'search'
+                    ? 'bg-[#121212]/40 border border-white/[0.14] text-white/80 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
+                    : 'bg-white text-black shadow-[0_4px_16px_rgba(255,255,255,0.25)]'
                 }`}
               >
                 {/* Morphing Hamburger Icon */}
@@ -429,7 +429,7 @@ export default function MobileNavbar() {
                   height="12" 
                   viewBox="0 0 14 14" 
                   className="flex-shrink-0 transition-colors duration-200" 
-                  style={{ stroke: activePanel === 'menu' ? '#000000' : '#ffffff' }}
+                  style={{ stroke: activePanel === 'search' ? '#ffffff' : '#000000' }}
                 >
                   <motion.path
                     fill="transparent"
@@ -461,10 +461,10 @@ export default function MobileNavbar() {
 
               <button
                 onClick={() => handlePillClick('search')}
-                className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
+                className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10.5px] font-display font-extrabold tracking-[0.18em] uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
                   activePanel === 'search'
                     ? 'bg-white text-black shadow-[0_4px_16px_rgba(255,255,255,0.25)]'
-                    : 'bg-white/[0.05] border border-white/10 text-zinc-300 hover:text-white'
+                    : 'bg-[#121212]/40 border border-white/[0.14] text-zinc-300 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
                 }`}
               >
                 <Search 
