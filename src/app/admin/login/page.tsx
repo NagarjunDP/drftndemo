@@ -39,7 +39,6 @@ function AdminLoginContent() {
         router.push('/admin');
         router.refresh();
       } else {
-        console.log(result);
         setErrorMsg('Authentication incomplete. Please contact support.');
       }
     } catch (error: any) {

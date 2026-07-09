@@ -43,12 +43,17 @@ export default function Navbar() {
 
   useEffect(() => {
     setMounted(true);
+    let docHeight = 0;
+
+    const handleResize = () => {
+      docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    };
+
     const handleScroll = () => {
       const scrolledY = window.scrollY;
       setIsScrolled(scrolledY > 50);
 
-      // Compute scroll percentage
-      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      // Compute scroll percentage using cached docHeight
       if (docHeight > 0 && progressBarRef.current) {
         const pct = (scrolledY / docHeight) * 100;
         gsap.to(progressBarRef.current, {
@@ -59,9 +64,18 @@ export default function Navbar() {
         });
       }
     };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll(); // set initial state
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize, { passive: true });
+    
+    // Set initial values
+    handleResize();
+    handleScroll();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   // Lock scroll when mobile menu is open

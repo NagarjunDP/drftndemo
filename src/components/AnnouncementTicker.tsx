@@ -128,12 +128,12 @@ export default function AnnouncementTicker() {
       {/* Edge fade-outs so content doesn't hard-cut at screen edge */}
       <div
         className="absolute inset-y-0 left-0 w-12 sm:w-20 pointer-events-none z-10"
-        style={{ background: 'linear-gradient(to right, hsl(0,0%,5%) 0%, transparent 100%)' }}
+        style={{ background: 'linear-gradient(to right, rgba(0,0,0,1) 0%, transparent 100%)' }}
         aria-hidden="true"
       />
       <div
         className="absolute inset-y-0 right-0 w-12 sm:w-20 pointer-events-none z-10"
-        style={{ background: 'linear-gradient(to left, hsl(0,0%,5%) 0%, transparent 100%)' }}
+        style={{ background: 'linear-gradient(to left, rgba(0,0,0,1) 0%, transparent 100%)' }}
         aria-hidden="true"
       />
     </section>

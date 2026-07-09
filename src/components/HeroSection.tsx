@@ -137,18 +137,20 @@ export default function HeroSection(props: HeroSectionProps) {
     // Drift in Style container rightward (outward) drift on scroll
     const driftContainer = hero.querySelector('.hero-drift-container');
     if (driftContainer) {
+      const isMobile = window.innerWidth < 768;
+      const driftX = isTouchDevice ? 160 : 320;
       const driftTween = gsap.fromTo(driftContainer,
         { x: 0, opacity: 1 },
         {
           scrollTrigger: {
             trigger: hero,
             start: 'top top',
-            end: '+=400', // completes quickly within 400px of scrolling
-            scrub: isTouchDevice ? 1.8 : 1, // smooth eased catch-up
+            end: isMobile ? '+=180' : '+=400', // completes very quickly on mobile (180px)
+            scrub: isMobile ? 0.2 : 0.5, // immediate responsiveness, no lag on mobile
           },
-          x: isTouchDevice ? 160 : 320, // slides outward to the right
+          x: driftX, // slide rightward (outward to the right)
           opacity: 0, // fades out as it slides out of the hero boundary
-          ease: 'power1.inOut',
+          ease: 'power1.out',
           force3D: true, // GPU acceleration
         }
       );
@@ -226,14 +228,14 @@ export default function HeroSection(props: HeroSectionProps) {
         {/* ── Transitional Beat: Drift in Style (Layer 2.5: Physically behind Layer 3 model) ── */}
         <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="0.35" style={{ willChange: 'transform' }}>
           <div className="absolute inset-0 w-full h-full hero-cursor-layer" data-depth="0.35" style={{ willChange: 'transform' }}>
-            <div className="absolute top-[28%] md:top-[32%] right-[6%] sm:right-[8%] md:right-[10%] lg:right-[12%] z-10 pointer-events-none hero-drift-container text-right flex-col items-end select-none hidden md:flex">
-              <span className="hero-drift-word opacity-0 block font-body font-light italic text-zinc-400 text-[clamp(1.8rem,8vw,3rem)] sm:text-[clamp(2.5rem,7vw,4rem)] lg:text-[clamp(3.8rem,5.5vw,4.8rem)] leading-[0.8] tracking-tighter uppercase">
+            <div className="absolute top-[28%] md:top-[32%] right-[6%] sm:right-[8%] md:right-[10%] lg:right-[12%] z-10 pointer-events-none hero-drift-container text-right flex flex-col items-end select-none">
+              <span className="hero-drift-word opacity-0 block font-body font-light italic text-zinc-400 text-[clamp(2.5rem,11vw,3.5rem)] sm:text-[clamp(3rem,8vw,4rem)] lg:text-[clamp(3.8rem,5.5vw,4.8rem)] leading-[0.8] tracking-tighter uppercase">
                 Drift
               </span>
-              <span className="hero-drift-word opacity-0 block font-mono text-zinc-500 font-bold not-italic tracking-[0.2em] uppercase my-1 md:my-2 text-[clamp(1.2rem,4vw,1.8rem)] sm:text-[clamp(1.5rem,3.5vw,2.2rem)] lg:text-[clamp(2.2rem,2.8vw,2.8rem)]">
+              <span className="hero-drift-word opacity-0 block font-mono text-zinc-500 font-bold not-italic tracking-[0.2em] uppercase my-1 md:my-2 text-[clamp(1.5rem,5vw,2rem)] sm:text-[clamp(1.8rem,4vw,2.4rem)] lg:text-[clamp(2.2rem,2.8vw,2.8rem)]">
                 in
               </span>
-              <span className="hero-drift-word opacity-0 block font-display font-black text-white text-[clamp(1.8rem,8vw,3rem)] sm:text-[clamp(2.5rem,7vw,4rem)] lg:text-[clamp(3.8rem,5.5vw,4.8rem)] leading-[0.8] tracking-tighter uppercase">
+              <span className="hero-drift-word opacity-0 block font-display font-black text-white text-[clamp(2.5rem,11vw,3.5rem)] sm:text-[clamp(3rem,8vw,4rem)] lg:text-[clamp(3.8rem,5.5vw,4.8rem)] leading-[0.8] tracking-tighter uppercase">
                 Style
               </span>
             </div>
@@ -293,13 +295,13 @@ export default function HeroSection(props: HeroSectionProps) {
         {/* 1. Vignette Overlay (Radial corner darkening) */}
         <div 
           className="absolute inset-0 z-10 pointer-events-none" 
-          style={{ background: 'radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.55) 100%)' }}
+          style={{ background: 'radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.6) 70%, rgba(0, 0, 0, 1) 100%)' }}
         />
 
         {/* 2. Linear Legibility Gradient (Transparent top third to dark bottom third) */}
         <div 
           className="absolute inset-0 z-10 pointer-events-none"
-          style={{ background: 'linear-gradient(to bottom, rgba(10,10,10,0) 0%, rgba(10,10,10,0) 30%, rgba(10,10,10,0.85) 100%)' }}
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,1) 100%)' }}
         />
 
         {/* 3. Cinematic Film Grain Overlay (Repeating SVG noise at 4% opacity) */}

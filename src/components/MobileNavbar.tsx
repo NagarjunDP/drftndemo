@@ -36,6 +36,7 @@ export default function MobileNavbar() {
   const [clickedLinkIdx, setClickedLinkIdx] = useState<number | null>(null);
   const [clickedSug, setClickedSug] = useState<string | null>(null);
   const [searchRotate, setSearchRotate] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const isOpen = activePanel !== null;
@@ -138,7 +139,7 @@ export default function MobileNavbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[2400] bg-black/35 backdrop-blur-[8px] md:hidden"
+            className="fixed inset-0 z-[2400] bg-black/70 backdrop-blur-[8px] md:hidden"
             onClick={() => setActivePanel(null)}
           >
             {/* Drifting Ambient Glow Blob (Red/White gradient) */}
@@ -176,7 +177,7 @@ export default function MobileNavbar() {
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2500] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden">
         <motion.div
           layout
-          className={`bg-[#141414]/55 backdrop-blur-[24px] saturate-[160%] border border-white/10 overflow-hidden flex flex-col justify-between shadow-[0_0_24px_rgba(255,255,255,0.1),_0_0_24px_rgba(239,68,68,0.15)] pointer-events-auto ${
+          className={`bg-black/75 backdrop-blur-[24px] saturate-[160%] border border-white/10 overflow-hidden flex flex-col justify-between shadow-[0_0_24px_rgba(255,255,255,0.1),_0_0_24px_rgba(239,68,68,0.15)] pointer-events-auto ${
             isOpen ? 'w-full h-[60vh] rounded-[28px] p-0' : 'w-[230px] h-[52px] rounded-full px-0.5'
           }`}
           animate={
@@ -200,6 +201,9 @@ export default function MobileNavbar() {
             scale: { repeat: isOpen ? 0 : Infinity, duration: 4, ease: 'easeInOut' },
             boxShadow: { repeat: isOpen ? 0 : Infinity, duration: 4, ease: 'easeInOut' },
           }}
+          onLayoutAnimationStart={() => setIsAnimating(true)}
+          onLayoutAnimationComplete={() => setIsAnimating(false)}
+          style={{ willChange: isAnimating ? 'transform' : 'auto' }}
         >
           {/* Light Sweep / Glass Sheen Overlay during morph */}
           <motion.div
@@ -436,10 +440,10 @@ export default function MobileNavbar() {
             <div className={`flex items-center ${isOpen ? 'gap-1' : 'w-full'}`}>
               <button
                 onClick={() => handlePillClick('menu')}
-                className={`flex-1 px-2.5 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-all duration-300 pointer-events-auto ${
+                className={`flex-1 px-2.5 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-[transform,background-color,color,box-shadow] duration-350 ease-streetwear pointer-events-auto active:scale-95 active:bg-white/5 active:text-white ${
                   activePanel === 'menu'
                     ? 'text-white bg-white/5 font-bold shadow-[0_0_10px_rgba(255,255,255,0.2)]'
-                    : 'text-zinc-400 hover:text-white'
+                    : 'text-zinc-400 md:hover:text-white'
                 }`}
               >
                 {/* Morphing Hamburger Icon */}
@@ -477,10 +481,10 @@ export default function MobileNavbar() {
 
               <button
                 onClick={() => handlePillClick('search')}
-                className={`flex-1 px-2.5 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-all duration-300 pointer-events-auto ${
+                className={`flex-1 px-2.5 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10px] font-mono tracking-widest uppercase transition-[transform,background-color,color,box-shadow] duration-350 ease-streetwear pointer-events-auto active:scale-95 active:bg-white/5 active:text-white ${
                   activePanel === 'search'
                     ? 'text-white bg-white/5 font-bold shadow-[0_0_10px_rgba(255,255,255,0.2)]'
-                    : 'text-zinc-400 hover:text-white'
+                    : 'text-zinc-400 md:hover:text-white'
                 }`}
               >
                 <Search className="w-3.5 h-3.5 stroke-[2.2] flex-shrink-0" />
