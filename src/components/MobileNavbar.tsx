@@ -157,6 +157,7 @@ export default function MobileNavbar() {
             boxShadow: isOpen
               ? '0 0 0 1px rgba(255,255,255,0.06), 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)'
               : '0 0 0 1px rgba(255,255,255,0.06), 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(255,255,255,0.05)',
+            willChange: isAnimating ? 'transform' : 'auto',
           }}
           animate={
             !isOpen
@@ -182,7 +183,7 @@ export default function MobileNavbar() {
           }}
           onLayoutAnimationStart={() => setIsAnimating(true)}
           onLayoutAnimationComplete={() => setIsAnimating(false)}
-          style={{ willChange: isAnimating ? 'transform' : 'auto' }}
+
         >
           {/* Light Sweep / Glass Sheen Overlay during morph */}
           <motion.div
