@@ -149,40 +149,25 @@ export default function MobileNavbar() {
       <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[2500] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden">
         <motion.div
           layout
-          className={`bg-black/80 backdrop-blur-[32px] saturate-[180%] overflow-hidden flex flex-col justify-between pointer-events-auto ${isOpen ? 'w-full h-[60vh] rounded-[28px] p-0' : 'w-[230px] h-[52px] rounded-full px-0.5'
-            }`}
+          className={`backdrop-blur-[24px] saturate-[160%] overflow-hidden flex flex-col justify-between pointer-events-auto transition-colors duration-300 ${
+            isOpen ? 'bg-[#121212]/95 w-full h-[60vh] rounded-[28px] p-0' : 'bg-[#2a2a2a]/90 w-[260px] h-[52px] rounded-full p-1.5'
+          }`}
           style={{
-            border: '1px solid rgba(255,255,255,0.12)',
+            border: '1px solid rgba(255,255,255,0.08)',
             boxShadow: isOpen
               ? '0 0 0 1px rgba(255,255,255,0.06), 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)'
-              : '0 0 0 1px rgba(255,255,255,0.06), 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(255,255,255,0.05)',
+              : '0 0 0 1px rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 20px rgba(255,255,255,0.02)',
             willChange: isAnimating ? 'transform' : 'auto',
           }}
-          animate={
-            !isOpen
-              ? {
-                scale: [1, 1.012, 1],
-                boxShadow: [
-                  '0 0 20px rgba(255,255,255,0.06), 0 0 16px rgba(239,68,68,0.08)',
-                  '0 0 26px rgba(255,255,255,0.12), 0 0 22px rgba(239,68,68,0.18)',
-                  '0 0 20px rgba(255,255,255,0.06), 0 0 16px rgba(239,68,68,0.08)',
-                ],
-              }
-              : {}
-          }
           transition={{
             layout: {
-              type: 'spring',
-              stiffness: 220,
-              damping: 32,
-              mass: 0.9,
-            },
-            scale: { repeat: isOpen ? 0 : Infinity, duration: 4, ease: 'easeInOut' },
-            boxShadow: { repeat: isOpen ? 0 : Infinity, duration: 4, ease: 'easeInOut' },
+              type: 'tween',
+              duration: 0.22,
+              ease: [0.16, 1, 0.3, 1], // easeOutExpo
+            }
           }}
           onLayoutAnimationStart={() => setIsAnimating(true)}
           onLayoutAnimationComplete={() => setIsAnimating(false)}
-
         >
           {/* Light Sweep / Glass Sheen Overlay during morph */}
           <motion.div
