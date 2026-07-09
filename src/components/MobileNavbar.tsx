@@ -146,12 +146,18 @@ export default function MobileNavbar() {
       />
 
       {/* ── FLOATING MORPHING CAPSULE ── */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[2500] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden">
+      <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[2500] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden">
         <motion.div
           layout
-          className={`bg-black/75 backdrop-blur-[24px] saturate-[160%] border border-white/10 overflow-hidden flex flex-col justify-between shadow-[0_0_24px_rgba(255,255,255,0.1),_0_0_24px_rgba(239,68,68,0.15)] pointer-events-auto ${
+          className={`bg-black/80 backdrop-blur-[32px] saturate-[180%] overflow-hidden flex flex-col justify-between pointer-events-auto ${
             isOpen ? 'w-full h-[60vh] rounded-[28px] p-0' : 'w-[230px] h-[52px] rounded-full px-0.5'
           }`}
+          style={{
+            border: '1px solid rgba(255,255,255,0.12)',
+            boxShadow: isOpen
+              ? '0 0 0 1px rgba(255,255,255,0.06), 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)'
+              : '0 0 0 1px rgba(255,255,255,0.06), 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(255,255,255,0.05)',
+          }}
           animate={
             !isOpen
               ? {

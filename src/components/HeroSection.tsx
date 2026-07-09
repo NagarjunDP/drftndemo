@@ -138,20 +138,20 @@ export default function HeroSection(props: HeroSectionProps) {
     const driftContainer = hero.querySelector('.hero-drift-container');
     if (driftContainer) {
       const isMobile = window.innerWidth < 768;
-      const driftX = isMobile ? 240 : (isTouchDevice ? 160 : 320);
+      const driftX = isMobile ? 200 : (isTouchDevice ? 160 : 320);
       const driftTween = gsap.fromTo(driftContainer,
         { x: 0, opacity: 1 },
         {
           scrollTrigger: {
             trigger: hero,
             start: 'top top',
-            end: isMobile ? '+=120' : '+=400', // completes immediately within 120px of scroll on mobile
-            scrub: isMobile ? true : 0.5, // immediate responsiveness (no lag) on mobile
+            end: isMobile ? '+=320' : '+=400', // slow graceful drift on mobile (320px)
+            scrub: isMobile ? 1.2 : 0.5,       // smooth eased follow, not instant
           },
-          x: driftX, // slide rightward (outward to the right)
-          opacity: 0, // fades out as it slides out of the hero boundary
+          x: driftX,
+          opacity: 0,
           ease: 'power1.out',
-          force3D: true, // GPU acceleration
+          force3D: true,
         }
       );
       if (driftTween.scrollTrigger) {
@@ -229,13 +229,46 @@ export default function HeroSection(props: HeroSectionProps) {
         <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="0.35" style={{ willChange: 'transform' }}>
           <div className="absolute inset-0 w-full h-full hero-cursor-layer" data-depth="0.35" style={{ willChange: 'transform' }}>
             <div className="absolute top-[58%] md:top-[32%] right-[6%] sm:right-[8%] md:right-[10%] lg:right-[12%] z-10 pointer-events-none hero-drift-container text-right flex flex-col items-end select-none">
-              <span className="hero-drift-word opacity-0 block font-body font-light italic text-zinc-400 text-[clamp(2.5rem,11vw,3.5rem)] sm:text-[clamp(3rem,8vw,4rem)] lg:text-[clamp(3.8rem,5.5vw,4.8rem)] leading-[0.8] tracking-tighter uppercase">
+              <span
+                className="hero-drift-word opacity-0 block uppercase leading-[0.82] tracking-[-0.02em]"
+                style={{
+                  fontFamily: 'var(--font-display, inherit)',
+                  fontWeight: 900,
+                  fontStyle: 'italic',
+                  fontSize: 'clamp(2.8rem, 12vw, 4rem)',
+                  color: 'rgba(255,255,255,0.55)',
+                  textShadow: '0 0 40px rgba(255,255,255,0.18)',
+                  letterSpacing: '-0.02em',
+                }}
+              >
                 Drift
               </span>
-              <span className="hero-drift-word opacity-0 block font-mono text-zinc-500 font-bold not-italic tracking-[0.2em] uppercase my-1 md:my-2 text-[clamp(1.5rem,5vw,2rem)] sm:text-[clamp(1.8rem,4vw,2.4rem)] lg:text-[clamp(2.2rem,2.8vw,2.8rem)]">
+              <span
+                className="hero-drift-word opacity-0 block uppercase"
+                style={{
+                  fontFamily: 'var(--font-mono, monospace)',
+                  fontWeight: 700,
+                  fontStyle: 'normal',
+                  fontSize: 'clamp(0.9rem, 3.5vw, 1.3rem)',
+                  color: 'rgba(255,255,255,0.35)',
+                  letterSpacing: '0.38em',
+                  margin: '0.35rem 0',
+                }}
+              >
                 in
               </span>
-              <span className="hero-drift-word opacity-0 block font-display font-black text-white text-[clamp(2.5rem,11vw,3.5rem)] sm:text-[clamp(3rem,8vw,4rem)] lg:text-[clamp(3.8rem,5.5vw,4.8rem)] leading-[0.8] tracking-tighter uppercase">
+              <span
+                className="hero-drift-word opacity-0 block uppercase leading-[0.82]"
+                style={{
+                  fontFamily: 'var(--font-display, inherit)',
+                  fontWeight: 900,
+                  fontStyle: 'normal',
+                  fontSize: 'clamp(2.8rem, 12vw, 4rem)',
+                  color: '#ffffff',
+                  textShadow: '0 0 60px rgba(255,255,255,0.28), 0 0 20px rgba(255,255,255,0.12)',
+                  letterSpacing: '-0.02em',
+                }}
+              >
                 Style
               </span>
             </div>
