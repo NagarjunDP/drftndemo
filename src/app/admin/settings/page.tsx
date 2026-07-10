@@ -97,65 +97,65 @@ export default function AdminSettings() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-800 pb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-200/80 pb-6">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-widest uppercase text-brand-offwhite">Store Settings</h1>
+          <h1 className="text-2xl font-extrabold tracking-widest uppercase text-zinc-900">Store Settings</h1>
           <p className="text-zinc-500 text-sm mt-1">Configure global store preferences and verify credentials.</p>
         </div>
       </div>
 
       {/* Environment Variables Status Dashboard */}
-      <div className="bg-zinc-900/40 border border-zinc-800 p-6 md:p-8">
-        <h2 className="text-sm font-bold text-brand-offwhite mb-6 uppercase tracking-widest border-b border-zinc-800 pb-3">
+      <div className="bg-white border border-zinc-200/60 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-6 md:p-8">
+        <h2 className="text-sm font-bold text-zinc-900 mb-6 uppercase tracking-widest border-b border-zinc-100 pb-3">
           Environment Connection Dashboard
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Razorpay Status */}
-          <div className="bg-zinc-900/30 border border-zinc-850 p-5 flex items-center justify-between">
+          <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 flex items-center justify-between">
             <div>
-              <span className="text-xs uppercase tracking-wider text-zinc-500 block font-bold">Razorpay Gateway</span>
-              <span className="text-sm font-bold block mt-1 text-brand-offwhite">Prepaid Payments</span>
+              <span className="text-xs uppercase tracking-wider text-zinc-400 block font-bold">Razorpay Gateway</span>
+              <span className="text-sm font-bold block mt-1 text-zinc-900">Prepaid Payments</span>
             </div>
             {envStatus.razorpay ? (
-              <div className="flex items-center gap-1 text-green-500 text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-1 text-green-600 text-xs font-bold uppercase tracking-wider">
                 <CheckCircle2 className="w-4 h-4" /> Connected
               </div>
             ) : (
-              <div className="flex items-center gap-1 text-brand-red text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-1 text-red-500 text-xs font-bold uppercase tracking-wider">
                 <XCircle className="w-4 h-4" /> Unconfigured
               </div>
             )}
           </div>
 
           {/* Shiprocket Status */}
-          <div className="bg-zinc-900/30 border border-zinc-850 p-5 flex items-center justify-between">
+          <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 flex items-center justify-between">
             <div>
-              <span className="text-xs uppercase tracking-wider text-zinc-500 block font-bold">Shiprocket Logistics</span>
-              <span className="text-sm font-bold block mt-1 text-brand-offwhite">Automatic Shipping</span>
+              <span className="text-xs uppercase tracking-wider text-zinc-400 block font-bold">Shiprocket Logistics</span>
+              <span className="text-sm font-bold block mt-1 text-zinc-900">Automatic Shipping</span>
             </div>
             {envStatus.shiprocket ? (
-              <div className="flex items-center gap-1 text-green-500 text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-1 text-green-600 text-xs font-bold uppercase tracking-wider">
                 <CheckCircle2 className="w-4 h-4" /> Connected
               </div>
             ) : (
-              <div className="flex items-center gap-1 text-brand-red text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-1 text-red-500 text-xs font-bold uppercase tracking-wider">
                 <XCircle className="w-4 h-4" /> Unconfigured
               </div>
             )}
           </div>
 
           {/* Make.com Status */}
-          <div className="bg-zinc-900/30 border border-zinc-850 p-5 flex items-center justify-between">
+          <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 flex items-center justify-between">
             <div>
-              <span className="text-xs uppercase tracking-wider text-zinc-500 block font-bold">Make Webhook URL</span>
-              <span className="text-sm font-bold block mt-1 text-brand-offwhite">WhatsApp Alerts</span>
+              <span className="text-xs uppercase tracking-wider text-zinc-400 block font-bold">Make Webhook URL</span>
+              <span className="text-sm font-bold block mt-1 text-zinc-900">WhatsApp Alerts</span>
             </div>
             {envStatus.makeWebhook ? (
-              <div className="flex items-center gap-1 text-green-500 text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-1 text-green-600 text-xs font-bold uppercase tracking-wider">
                 <CheckCircle2 className="w-4 h-4" /> Connected
               </div>
             ) : (
-              <div className="flex items-center gap-1 text-brand-red text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-1 text-red-500 text-xs font-bold uppercase tracking-wider">
                 <XCircle className="w-4 h-4" /> Unconfigured
               </div>
             )}
@@ -166,8 +166,8 @@ export default function AdminSettings() {
       <form onSubmit={handleSave} className="space-y-8">
         
         {/* General Details */}
-        <div className="bg-zinc-900/30 border border-zinc-800 p-6 md:p-8">
-          <h2 className="text-lg font-bold text-brand-offwhite mb-6 uppercase tracking-wider border-b border-zinc-800 pb-2">General Details</h2>
+        <div className="bg-white border border-zinc-200/60 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-6 md:p-8">
+          <h2 className="text-lg font-bold text-zinc-900 mb-6 uppercase tracking-wider border-b border-zinc-100 pb-2">General Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-xs uppercase tracking-wider text-zinc-500 font-bold block">Store Name</label>
@@ -176,7 +176,7 @@ export default function AdminSettings() {
                 name="store_name"
                 value={settings.store_name}
                 onChange={handleChange}
-                className="w-full bg-zinc-900/80 border border-zinc-700 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-brand-red transition-colors"
+                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg"
               />
             </div>
             <div className="space-y-2">
@@ -186,7 +186,7 @@ export default function AdminSettings() {
                 name="contact_number"
                 value={settings.contact_number}
                 onChange={handleChange}
-                className="w-full bg-zinc-900/80 border border-zinc-700 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-brand-red transition-colors"
+                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg"
               />
             </div>
             <div className="space-y-2 md:col-span-2">
@@ -196,15 +196,15 @@ export default function AdminSettings() {
                 name="instagram_handle"
                 value={settings.instagram_handle}
                 onChange={handleChange}
-                className="w-full bg-zinc-900/80 border border-zinc-700 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-brand-red transition-colors"
+                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg"
               />
             </div>
           </div>
         </div>
 
         {/* Shipping Preferences */}
-        <div className="bg-zinc-900/30 border border-zinc-800 p-6 md:p-8">
-          <h2 className="text-lg font-bold text-brand-offwhite mb-6 uppercase tracking-wider border-b border-zinc-800 pb-2">Shipping Preferences</h2>
+        <div className="bg-white border border-zinc-200/60 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-6 md:p-8">
+          <h2 className="text-lg font-bold text-zinc-900 mb-6 uppercase tracking-wider border-b border-zinc-100 pb-2">Shipping Preferences</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-xs uppercase tracking-wider text-zinc-500 font-bold block">Free Shipping Threshold (₹)</label>
@@ -213,7 +213,7 @@ export default function AdminSettings() {
                 name="free_shipping_threshold"
                 value={settings.free_shipping_threshold}
                 onChange={handleChange}
-                className="w-full bg-zinc-900/80 border border-zinc-700 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-brand-red transition-colors"
+                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg"
               />
             </div>
             <div className="space-y-2">
@@ -223,17 +223,17 @@ export default function AdminSettings() {
                 name="default_shipping_charge"
                 value={settings.default_shipping_charge}
                 onChange={handleChange}
-                className="w-full bg-zinc-900/80 border border-zinc-700 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-white transition-colors"
+                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg"
               />
             </div>
           </div>
         </div>
 
-        <div className="pt-4 border-t border-zinc-900 flex justify-end">
+        <div className="pt-4 border-t border-zinc-200 flex justify-end">
           <button
             type="submit"
             disabled={isSaving}
-            className="bg-white hover:bg-zinc-200 text-black px-8 py-4 font-bold uppercase tracking-widest text-sm transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+            className="bg-zinc-900 hover:bg-zinc-700 text-white px-8 py-4 font-bold uppercase tracking-widest text-sm transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer rounded-lg"
           >
             {isSaving ? 'Saving...' : 'Save Settings'}
             {!isSaving && <Save className="w-4 h-4" />}

@@ -110,30 +110,30 @@ export default function AdminDiscounts() {
 
   return (
     <div className="space-y-6 animate-fade-in relative">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-800 pb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-200/80 pb-6">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-widest uppercase text-brand-offwhite">Discount Codes</h1>
+          <h1 className="text-2xl font-extrabold tracking-widest uppercase text-zinc-900">Discount Codes</h1>
           <p className="text-zinc-500 text-sm mt-1">Create and manage promotional codes and sales.</p>
         </div>
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="bg-white hover:bg-zinc-200 text-black px-6 py-3 font-bold uppercase tracking-widest text-xs transition-colors flex items-center gap-2"
+          className="bg-zinc-900 hover:bg-zinc-700 text-white px-6 py-3 font-bold uppercase tracking-widest text-xs transition-colors flex items-center gap-2 rounded-lg"
         >
           <Plus className="w-4 h-4" />
           Create Code
         </button>
       </div>
 
-      <div className="bg-zinc-900/30 border border-zinc-800">
-        <div className="p-4 border-b border-zinc-800 flex items-center gap-4">
+      <div className="bg-white border border-zinc-200/60 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] overflow-hidden">
+        <div className="p-4 border-b border-zinc-100 flex items-center gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input
               type="text"
               placeholder="Search codes..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-zinc-900/80 border border-zinc-700 text-brand-offwhite pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-brand-red transition-colors uppercase"
+              className="w-full bg-zinc-50/50 border border-zinc-200 text-zinc-900 pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg uppercase"
             />
           </div>
         </div>
@@ -144,14 +144,14 @@ export default function AdminDiscounts() {
           ) : (
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
-                <tr className="border-b border-zinc-800 bg-zinc-900/50">
-                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-500">Code</th>
-                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-500">Value</th>
-                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-500">Min. Order</th>
-                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-500">Usage</th>
-                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-500">Expires</th>
-                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-500">Status</th>
-                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-500 text-right">Actions</th>
+                <tr className="border-b border-zinc-100 bg-zinc-50/70">
+                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Code</th>
+                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Value</th>
+                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Min. Order</th>
+                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Usage</th>
+                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Expires</th>
+                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-400">Status</th>
+                  <th className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-400 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -161,29 +161,29 @@ export default function AdminDiscounts() {
                   </tr>
                 ) : (
                   filteredDiscounts.map(discount => (
-                    <tr key={discount.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/20 transition-colors">
-                      <td className="p-4 font-mono font-bold text-brand-offwhite">
+                    <tr key={discount.id} className="border-b border-zinc-100 hover:bg-zinc-50/30 transition-colors">
+                      <td className="p-4 font-mono font-bold text-zinc-900">
                         <span className="flex items-center gap-1.5">
-                          <Tag className="w-3.5 h-3.5 text-zinc-500" />
+                          <Tag className="w-3.5 h-3.5 text-zinc-400" />
                           {discount.code}
                         </span>
                       </td>
-                      <td className="p-4 text-sm text-brand-offwhite">
+                      <td className="p-4 text-sm text-zinc-900 font-semibold">
                         {discount.discount_type === 'percent' 
                           ? `${discount.discount_value}%` 
                           : `₹${(discount.discount_value / 100).toFixed(2)}`
                         } OFF
                       </td>
-                      <td className="p-4 font-mono text-sm text-zinc-400">
+                      <td className="p-4 font-mono text-sm text-zinc-600">
                         {discount.min_order_value > 0 
                           ? `₹${(discount.min_order_value / 100).toFixed(2)}` 
                           : 'None'
                         }
                       </td>
-                      <td className="p-4 text-sm text-zinc-400">
+                      <td className="p-4 text-sm text-zinc-600">
                         {discount.used_count} {discount.usage_limit ? `/ ${discount.usage_limit}` : 'used'}
                       </td>
-                      <td className="p-4 text-sm text-zinc-400">
+                      <td className="p-4 text-sm text-zinc-600">
                         {discount.expires_at 
                           ? new Date(discount.expires_at).toLocaleDateString() 
                           : 'Never'
@@ -193,7 +193,7 @@ export default function AdminDiscounts() {
                         <button 
                           onClick={() => toggleDiscountActive(discount)}
                           className={`flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-colors ${
-                          discount.is_active ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                          discount.is_active ? 'bg-green-50 text-green-600 border border-green-100 hover:bg-green-100' : 'bg-zinc-100 text-zinc-500 border border-zinc-200 hover:bg-zinc-200'
                         }`}>
                           {discount.is_active ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                           {discount.is_active ? 'Active' : 'Inactive'}
@@ -202,7 +202,7 @@ export default function AdminDiscounts() {
                       <td className="p-4 text-right">
                         <button
                           onClick={() => handleDelete(discount.id, discount.code)}
-                          className="p-2 text-zinc-400 hover:text-brand-red transition-colors border border-zinc-850 hover:border-zinc-800 rounded bg-zinc-900/50"
+                          className="p-2 text-zinc-500 hover:text-red-600 transition-colors border border-zinc-200 hover:border-red-200 rounded bg-white"
                           title="Delete Coupon"
                         >
                           <Trash2 className="w-4 h-4" />
