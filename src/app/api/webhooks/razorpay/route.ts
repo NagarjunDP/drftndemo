@@ -3,10 +3,16 @@ import crypto from 'crypto';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
+import { razorpay } from '@/lib/razorpay';
+
+import { sendRefundEmail } from '@/lib/email';
 
 const MAKE_WHATSAPP_WEBHOOK = process.env.MAKE_WEBHOOK_URL || '';
 
+
 export async function POST(request: Request) {
+  let order: any = null;
+  let payment: any = null;
   try {
     const rawBody = await request.text();
     const signature = request.headers.get('x-razorpay-signature');
@@ -39,7 +45,7 @@ export async function POST(request: Request) {
 
     const payload = JSON.parse(rawBody);
     const event = payload.event;
-    const payment = payload.payload.payment.entity;
+    payment = payload.payload.payment.entity;
     const razorpayOrderId = payment.order_id;
 
     if (!razorpayOrderId) {
@@ -47,11 +53,12 @@ export async function POST(request: Request) {
     }
 
     // Find the corresponding order
-    const [order] = await db
+    const [foundOrder] = await db
       .select()
       .from(schema.orders)
       .where(eq(schema.orders.razorpay_order_id, razorpayOrderId))
       .limit(1);
+    order = foundOrder;
 
     if (!order) {
       console.warn(`[Razorpay Webhook] Order not found for Razorpay Order ID: ${razorpayOrderId}`);
@@ -83,7 +90,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, message: 'Payment mismatch handled, order flagged.' });
       }
 
-      await db.transaction(async (tx: any) => {
+      const orderResult = await db.transaction(async (tx: any) => {
         // Re-query within transaction
         const [oRecord] = await tx
           .select()
@@ -92,32 +99,35 @@ export async function POST(request: Request) {
         
         if (!oRecord || oRecord.payment_status === 'paid') return;
 
-        // Deduct stocks
-        for (const item of oRecord.items) {
-          const [pRecord] = await tx
-            .select({ stock_quantity: schema.products.stock_quantity })
-            .from(schema.products)
-            .where(eq(schema.products.id, item.id))
-            .for('update');
+        // If the order has already expired, we put the stock back when it expired, so we must deduct it again now.
+        // Otherwise, if it was still pending_payment, it is already deducted, so we do not touch the stock.
+        if (oRecord.order_status === 'expired') {
+          for (const item of oRecord.items) {
+            const [pRecord] = await tx
+              .select({ stock_quantity: schema.products.stock_quantity })
+              .from(schema.products)
+              .where(eq(schema.products.id, item.id))
+              .for('update');
 
-          if (pRecord) {
-            const currentStock = { ...pRecord.stock_quantity };
-            if (currentStock[item.size] !== undefined) {
-              currentStock[item.size] = Math.max(0, currentStock[item.size] - item.quantity);
-              await tx
-                .update(schema.products)
-                .set({ stock_quantity: currentStock })
-                .where(eq(schema.products.id, item.id));
+            if (pRecord) {
+              const currentStock = { ...pRecord.stock_quantity };
+              if (currentStock[item.size] !== undefined) {
+                currentStock[item.size] = Math.max(0, currentStock[item.size] - item.quantity);
+                await tx
+                  .update(schema.products)
+                  .set({ stock_quantity: currentStock })
+                  .where(eq(schema.products.id, item.id));
+              }
             }
           }
-        }
 
-        // Increment discount code usage count
-        if (oRecord.discount_code) {
-          await tx
-            .update(schema.discountCodes)
-            .set({ used_count: sql`${schema.discountCodes.used_count} + 1` })
-            .where(eq(schema.discountCodes.code, oRecord.discount_code));
+          // Increment discount code usage count
+          if (oRecord.discount_code) {
+            await tx
+              .update(schema.discountCodes)
+              .set({ used_count: sql`${schema.discountCodes.used_count} + 1` })
+              .where(eq(schema.discountCodes.code, oRecord.discount_code));
+          }
         }
 
         // Mark as paid and confirmed
@@ -131,15 +141,18 @@ export async function POST(request: Request) {
           updates.deposit_status = 'paid';
         }
 
-        await tx
+        const [updatedOrder] = await tx
           .update(schema.orders)
           .set(updates)
-          .where(eq(schema.orders.id, order.id));
+          .where(eq(schema.orders.id, order.id))
+          .returning();
+
+        return updatedOrder;
       });
 
       // Fire Make.com WhatsApp Webhook (Fire-and-forget)
-      if (MAKE_WHATSAPP_WEBHOOK && MAKE_WHATSAPP_WEBHOOK.startsWith('http')) {
-        const itemsList = order.items
+      if (orderResult && MAKE_WHATSAPP_WEBHOOK && MAKE_WHATSAPP_WEBHOOK.startsWith('http')) {
+        const itemsList = orderResult.items
           .map((i: any) => `${i.name} (${i.size}) x${i.quantity}`)
           .join(', ');
 
@@ -179,8 +192,51 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, message: 'Unhandled event type' });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Razorpay Webhook Error:', error);
+
+    if (error.message && error.message.startsWith('OUT_OF_STOCK_REFUND:')) {
+      const productName = error.message.split('OUT_OF_STOCK_REFUND:')[1];
+      try {
+        if (order && order.payment_status !== 'refunded') {
+          const refundAmount = order.payment_type === 'cod_with_deposit' ? 20000 : order.total;
+          if (razorpay) {
+            console.log(`[Webhook AUTO-REFUND] Triggering refund for order ${order.order_number}, amount: ${refundAmount}`);
+            await razorpay.payments.refund(payment.id, {
+              amount: refundAmount,
+              notes: {
+                reason: `Stock sold out before webhook verification completed (late payment for ${productName})`,
+                order_id: order.id,
+                order_number: order.order_number
+              }
+            });
+          }
+          
+          await db
+            .update(schema.orders)
+            .set({
+              order_status: 'failed',
+              payment_status: 'refunded',
+              payment_id: payment.id,
+              updated_at: new Date()
+            })
+            .where(eq(schema.orders.id, order.id));
+
+          // Fire-and-forget refund notification email to the customer
+          sendRefundEmail({
+            orderNumber: order.order_number,
+            customerName: order.customer_name,
+            customerEmail: order.customer_email,
+            productName,
+            refundAmountPaise: refundAmount,
+          });
+        }
+      } catch (refundErr) {
+        console.error('Webhook auto-refund processing failed:', refundErr);
+      }
+      return NextResponse.json({ success: true, processed: true, message: 'Stock out refund completed.' });
+    }
+
     return NextResponse.json({ error: 'Internal server error processing webhook' }, { status: 500 });
   }
 }

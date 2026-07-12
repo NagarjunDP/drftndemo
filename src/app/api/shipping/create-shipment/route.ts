@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       length: 25,  // standard packet length in cm
       width: 20,   // standard width in cm
       height: 5,   // standard height in cm
-      pickup_address: 'DRFTN Yelahanka Hub, Bengaluru, Karnataka - 560064',
+      pickup_address: '1st Floor, Kogilu Main Rd, above Sri Venkateshwar Vaibhava Veg Hotel, K B Sandra, Maruthi Nagar, Yelahanka, Bengaluru, Karnataka 560064',
       delivery_address: {
         name: order.customer_name,
         phone: order.customer_phone,

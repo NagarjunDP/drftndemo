@@ -161,7 +161,7 @@ const POLICIES: Record<string, PolicyData> = {
       },
       {
         heading: '2. Grievance Officer Details',
-        content: 'Name: Nagarjun D. P.\nTitle: Grievance Redressal Officer, DRFTN CLOTHING\nEmail: grievance@drftn.in\nAddress: Yelahanka, Bengaluru, Karnataka, India - 560064\nPhone: +91 74061 64512'
+        content: 'Name: Nagarjun D. P.\nTitle: Grievance Redressal Officer, DRFTN CLOTHING\nEmail: grievance@drftn.in\nAddress: 1st Floor, Kogilu Main Rd, above Sri Venkateshwar Vaibhava Veg Hotel, K B Sandra, Maruthi Nagar, Yelahanka, Bengaluru, Karnataka, India - 560064\nPhone: +91 74061 64512'
       },
       {
         heading: '3. Resolution Timeline',

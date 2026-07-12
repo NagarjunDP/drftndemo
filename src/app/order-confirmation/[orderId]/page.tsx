@@ -83,8 +83,8 @@ export default async function OrderConfirmationPage({ params }: { params: { orde
               </div>
               <div className="text-xs space-y-1 font-mono text-zinc-400">
                 <p className="text-white font-bold">📍 Store Pickup Point:</p>
-                <p>DRFTN Flagship Store</p>
-                <p>100 Feet Road, Indiranagar, Bengaluru</p>
+                <p>DRFTN Store</p>
+                <p>1st Floor, Kogilu Main Rd, above Sri Venkateshwar Vaibhava Veg Hotel, K B Sandra, Yelahanka, Bengaluru</p>
                 <p className="text-[10px] text-zinc-500 mt-2">
                   Show this code to store staff when collecting your items.
                 </p>

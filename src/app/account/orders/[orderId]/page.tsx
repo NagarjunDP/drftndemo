@@ -2,8 +2,8 @@ import React from 'react';
 import { auth } from '@clerk/nextjs/server';
 import { notFound, redirect } from 'next/navigation';
 import { db } from '@/db';
-import { orders } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { orders, productImages } from '@/db/schema';
+import { eq, inArray } from 'drizzle-orm';
 import Link from 'next/link';
 import { ArrowLeft, Clock, ShoppingBag, MapPin, Map, Calendar, AlertCircle } from 'lucide-react';
 import CancelOrderButton from './CancelOrderButton';
@@ -39,6 +39,24 @@ export default async function OrderDetailPage({ params }: { params: { orderId: s
   if (!order || order.user_id !== userId) {
     notFound();
   }
+
+  // Collect all product IDs from the order items
+  const productIds = (order?.items as any[] || []).map(i => i.id || i.productId);
+
+  // Fetch product images as a fallback
+  const fallbackImages = productIds.length > 0
+    ? await db
+        .select()
+        .from(productImages)
+        .where(inArray(productImages.product_id, productIds as string[]))
+    : [];
+
+  const imageMap = new globalThis.Map<string, string>();
+  fallbackImages.forEach((img: any) => {
+    if (!imageMap.has(img.product_id)) {
+      imageMap.set(img.product_id, img.image_url);
+    }
+  });
 
   const isPickup = order.fulfillment_type === 'pickup';
   const cancelableStatuses = ['confirmed', 'preparing', 'placed'];
@@ -180,7 +198,7 @@ export default async function OrderDetailPage({ params }: { params: { orderId: s
                     <div className="w-16 h-20 bg-zinc-900 shrink-0 overflow-hidden relative border border-zinc-850">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
-                        src={item.image} 
+                        src={item.image || imageMap.get(item.id || item.productId) || 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800&auto=format&fit=crop&q=80'} 
                         alt={item.name} 
                         className="w-full h-full object-cover"
                       />

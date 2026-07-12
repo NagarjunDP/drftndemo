@@ -2,14 +2,17 @@ import React from 'react';
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
-import { orders } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { orders, productImages, users } from '@/db/schema';
+import { eq, desc, inArray } from 'drizzle-orm';
 import Link from 'next/link';
 import { ShoppingBag, ArrowRight } from 'lucide-react';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/jwt';
+import ProfileSection from '@/components/ProfileSection';
 
 export const metadata = {
-  title: 'My Orders',
-  description: 'Manage and track your DRFTN Clothing orders.',
+  title: 'My Orders & Profile',
+  description: 'Manage your DRFTN Clothing profile and track your orders.',
 };
 
 export const dynamic = 'force-dynamic';
@@ -43,9 +46,36 @@ function getStatusColor(status: string) {
 }
 
 export default async function CustomerOrdersPage() {
-  const { userId } = await auth();
+  let userId: string | null = null;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('drftn_session')?.value;
+
+  if (sessionToken) {
+    const payload = await verifyToken(sessionToken);
+    if (payload && payload.userId) {
+      userId = payload.userId as string;
+    }
+  }
 
   if (!userId) {
+    const clerkAuth = await auth();
+    if (clerkAuth.userId) {
+      userId = clerkAuth.userId;
+    }
+  }
+
+  if (!userId) {
+    redirect('/sign-in?redirect_url=/account/orders');
+  }
+
+  // Fetch user details from database
+  const [dbUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!dbUser) {
     redirect('/sign-in?redirect_url=/account/orders');
   }
 
@@ -55,6 +85,24 @@ export default async function CustomerOrdersPage() {
     .from(orders)
     .where(eq(orders.user_id, userId))
     .orderBy(desc(orders.created_at));
+
+  // Collect all product IDs from the orders
+  const productIds = Array.from(new Set(userOrders.flatMap((o: any) => (o.items as any[]).map(i => i.id || i.productId))));
+
+  // Fetch product images as a fallback
+  const fallbackImages = productIds.length > 0
+    ? await db
+        .select()
+        .from(productImages)
+        .where(inArray(productImages.product_id, productIds as string[]))
+    : [];
+
+  const imageMap = new Map<string, string>();
+  fallbackImages.forEach((img: any) => {
+    if (!imageMap.has(img.product_id)) {
+      imageMap.set(img.product_id, img.image_url);
+    }
+  });
 
   return (
     <main className="min-h-screen bg-black text-white pt-28 pb-20 px-4 md:px-8">
@@ -153,7 +201,7 @@ export default async function CustomerOrdersPage() {
                           <div className="w-12 h-14 bg-zinc-900 shrink-0 overflow-hidden relative border border-zinc-850">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img 
-                              src={item.image} 
+                              src={item.image || imageMap.get(item.id || item.productId) || 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800&auto=format&fit=crop&q=80'} 
                               alt={item.name} 
                               className="w-full h-full object-cover"
                             />
@@ -199,6 +247,12 @@ export default async function CustomerOrdersPage() {
             })}
           </div>
         )}
+
+        {/* Profile Details Section */}
+        <ProfileSection 
+          initialName={dbUser.name} 
+          phone={dbUser.phone || ''} 
+        />
       </div>
     </main>
   );

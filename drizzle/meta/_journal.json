@@ -8,6 +8,13 @@
       "when": 1782401849183,
       "tag": "0000_fantastic_mister_fear",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783777182560,
+      "tag": "0001_icy_deathstrike",
+      "breakpoints": true
     }
   ]
 }

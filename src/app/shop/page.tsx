@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useEffect, useState, useRef, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Search, SlidersHorizontal, Grid3X3, Grid2X2, ArrowUpDown, X, Sparkles, Plus, ShoppingBag } from 'lucide-react';
 import { dbService } from '@/lib/db';
 import { Product, Category } from '@/types';
@@ -194,6 +195,8 @@ function ShopContent() {
   const addItem = useCartStore((state) => state.addItem);
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProductForSize, setSelectedProductForSize] = useState<Product | null>(null);
+  const [quickAddEvent, setQuickAddEvent] = useState<React.MouseEvent | null>(null);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [categoriesList, setCategoriesList] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -312,32 +315,61 @@ function ShopContent() {
     router.push('/shop');
   };
 
-  // Quick add — logic unchanged
+  // Quick add — updated to ask for size
   const handleQuickAdd = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
     e.stopPropagation();
     const availableSizes = product.sizes.filter(s => (product.stock_quantity[s] || 0) > 0);
-    if (availableSizes.length === 0) { toast.error('This product is completely sold out!'); return; }
-    const defaultSize = availableSizes.includes('M') ? 'M' : availableSizes[0];
+    if (availableSizes.length === 0) {
+      toast.error('This product is completely sold out!');
+      return;
+    }
+    
+    // Save details to open size selector modal
+    setQuickAddEvent(e);
+    setSelectedProductForSize(product);
+  };
+
+  const handleSizeSelect = (size: string) => {
+    if (!selectedProductForSize) return;
+    
+    const product = selectedProductForSize;
+    const e = quickAddEvent;
+    
+    setSelectedProductForSize(null);
+    setQuickAddEvent(null);
+    
     addItem({
-      id: product.id, name: product.name, slug: product.slug, price: product.price,
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      price: product.price,
       compare_price: product.compare_price,
-      image: product.images[0] || '', size: defaultSize,
+      image: product.images[0] || '',
+      size: size,
     }, 1);
-    let cartEl = document.getElementById('navbar-cart-btn');
-    if (!cartEl || cartEl.getBoundingClientRect().width === 0) cartEl = document.getElementById('mobile-cart-trigger');
-    if (cartEl) {
-      const cartRect = cartEl.getBoundingClientRect();
-      const endX = cartRect.left + cartRect.width / 2;
-      const endY = cartRect.top + cartRect.height / 2;
-      const cardEl = e.currentTarget.closest('.product-card');
-      const imgEl = cardEl?.querySelector('img');
-      const sourceRect = imgEl ? imgEl.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
-      useAnimationStore.getState().addFlyingItem({
-        imageUrl: product.images[0] || '',
-        start: { x: sourceRect.left + sourceRect.width / 2, y: sourceRect.top + sourceRect.height / 2 },
-        end: { x: endX, y: endY },
-      });
+    
+    if (e) {
+      let cartEl = document.getElementById('navbar-cart-btn');
+      if (!cartEl || cartEl.getBoundingClientRect().width === 0) cartEl = document.getElementById('mobile-cart-trigger');
+      if (cartEl) {
+        const cartRect = cartEl.getBoundingClientRect();
+        const endX = cartRect.left + cartRect.width / 2;
+        const endY = cartRect.top + cartRect.height / 2;
+        
+        // Find product card based on name/slug to get image element
+        const cardEl = document.querySelector(`a[href="/shop/${product.slug}"]`);
+        const imgEl = cardEl?.querySelector('img');
+        const sourceRect = imgEl ? imgEl.getBoundingClientRect() : e.currentTarget?.getBoundingClientRect() || { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
+        
+        useAnimationStore.getState().addFlyingItem({
+          imageUrl: product.images[0] || '',
+          start: { x: sourceRect.left + sourceRect.width / 2, y: sourceRect.top + sourceRect.height / 2 },
+          end: { x: endX, y: endY },
+        });
+      } else {
+        useAnimationStore.getState().triggerCartPulse();
+      }
     } else {
       useAnimationStore.getState().triggerCartPulse();
     }
@@ -781,6 +813,81 @@ function ShopContent() {
           </button>
         </div>
       </div>
+
+      {/* ── Size Selection Modal ── */}
+      {typeof window !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {selectedProductForSize && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[99999] flex items-center justify-center p-4"
+              onClick={() => setSelectedProductForSize(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="relative w-full max-w-[360px] bg-black border border-white p-6 flex flex-col items-center gap-6 shadow-[0_0_50px_rgba(255,255,255,0.06)] rounded-none"
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => setSelectedProductForSize(null)}
+                  className="absolute top-2 right-2 text-zinc-500 hover:text-white transition-colors w-10 h-10 flex items-center justify-center cursor-pointer"
+                  aria-label="Close size selector"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+
+                {/* Product Info */}
+                <div className="text-center space-y-2 mt-2">
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-brand-stone font-mono block">
+                    Select Size
+                  </span>
+                  <h3 className="text-sm font-black uppercase tracking-wider text-white">
+                    {selectedProductForSize.name}
+                  </h3>
+                  <p className="text-xs text-brand-stone font-mono">
+                    ₹{(selectedProductForSize.price / 100).toLocaleString('en-IN')}
+                  </p>
+                </div>
+
+                {/* Sizes Buttons Grid */}
+                <div className="grid grid-cols-3 gap-2.5 w-full pt-2">
+                  {selectedProductForSize.sizes.map((size) => {
+                    const isAvailable = (selectedProductForSize.stock_quantity[size] || 0) > 0;
+                    return (
+                      <button
+                        key={size}
+                        disabled={!isAvailable}
+                        onClick={() => handleSizeSelect(size)}
+                        className={`py-3.5 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                          isAvailable
+                            ? 'border-white/20 bg-transparent text-white hover:bg-white hover:text-black hover:border-white'
+                            : 'border-white/5 bg-white/[0.02] text-zinc-600 line-through cursor-not-allowed'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Cancel link */}
+                <button
+                  onClick={() => setSelectedProductForSize(null)}
+                  className="text-[9px] text-zinc-500 uppercase tracking-widest hover:text-white transition-colors font-mono underline mt-1"
+                >
+                  Cancel
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }

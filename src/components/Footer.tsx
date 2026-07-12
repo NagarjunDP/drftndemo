@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { ArrowRight, ChevronDown, ChevronUp, ShieldCheck, Lock, RefreshCw } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronUp, ShieldCheck, Lock, RefreshCw, CheckCircle, Bell } from 'lucide-react';
 import { toast } from '@/lib/toast';
 
 const InstagramIcon = ({ className }: { className?: string }) => (
@@ -66,6 +66,71 @@ export default function Footer() {
   
   // Mobile accordion toggle state
   const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
+
+  // Push Notification state
+  const [subscribed, setSubscribed] = useState<boolean | 'unsupported'>(false);
+
+  React.useEffect(() => {
+    const checkSubscription = async () => {
+      if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setSubscribed('unsupported');
+        return;
+      }
+      if (Notification.permission === 'granted') {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          const sub = await registration.pushManager.getSubscription();
+          setSubscribed(!!sub);
+        } catch (e) {
+          setSubscribed(false);
+        }
+      } else {
+        setSubscribed(false);
+      }
+    };
+    checkSubscription();
+  }, []);
+
+  const handleSubscribe = async () => {
+    try {
+      if (subscribed === 'unsupported') return;
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        toast.error('Notification permission was denied.');
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+
+      const applicationServerKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey,
+      });
+
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: subscription.toJSON().keys?.p256dh,
+            auth: subscription.toJSON().keys?.auth,
+          },
+          productId: null,
+        }),
+      });
+
+      if (!res.ok) throw new Error();
+
+      setSubscribed(true);
+      toast.success("Successfully subscribed to drop alerts!");
+    } catch (err) {
+      console.error(err);
+      toast.error('Could not enable notifications. Please try again.');
+    }
+  };
 
   if (pathname?.startsWith('/admin')) return null;
 
@@ -161,25 +226,46 @@ export default function Footer() {
           </div>
 
           {/* Newsletter Box */}
-          <div className="space-y-2 pt-2">
-            <span className="text-[9px] uppercase tracking-[0.25em] font-bold text-brand-amber block">Join the Drop List</span>
-            <form onSubmit={handleNewsletterSubmit} className="flex max-w-xs" aria-label="Newsletter signup">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="flex-1 px-3 py-2 text-xs bg-zinc-950 border border-brand-graphite text-brand-offwhite placeholder-zinc-600 focus:border-white focus:outline-none font-mono"
-              />
-              <button
-                type="submit"
-                className="bg-white hover:bg-zinc-200 text-black px-3 flex items-center justify-center transition-colors"
-                aria-label="Subscribe"
-              >
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </form>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <span className="text-[9px] uppercase tracking-[0.25em] font-bold text-brand-amber block">Join the Drop List</span>
+              <form onSubmit={handleNewsletterSubmit} className="flex max-w-xs" aria-label="Newsletter signup">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="flex-1 px-3 py-2 text-xs bg-zinc-950 border border-brand-graphite text-brand-offwhite placeholder-zinc-600 focus:border-white focus:outline-none font-mono"
+                />
+                <button
+                  type="submit"
+                  className="bg-white hover:bg-zinc-200 text-black px-3 flex items-center justify-center transition-colors cursor-pointer"
+                  aria-label="Subscribe"
+                >
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </form>
+            </div>
+
+            {/* Browser Push alerts section */}
+            <div className="pt-4 border-t border-brand-graphite/40 space-y-2">
+              <span className="text-[9px] uppercase tracking-[0.25em] font-bold text-brand-stone block">Browser Alerts</span>
+              {subscribed === 'unsupported' ? (
+                <span className="text-[10px] text-zinc-650 uppercase font-mono tracking-widest block">Alerts not supported</span>
+              ) : subscribed ? (
+                <div className="inline-flex items-center gap-1.5 text-emerald-400 text-xs font-bold uppercase tracking-wider font-mono">
+                  <CheckCircle className="w-4 h-4 shrink-0" /> You&apos;re Subscribed
+                </div>
+              ) : (
+                <button
+                  onClick={handleSubscribe}
+                  className="w-full max-w-xs bg-zinc-950 border border-brand-graphite hover:border-white text-white py-2.5 px-4 text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 cursor-pointer font-mono"
+                >
+                  <Bell className="w-3.5 h-3.5" /> Enable Notifications
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

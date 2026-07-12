@@ -5,8 +5,12 @@ import * as schema from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { verifyPaymentSchema } from '@/lib/validations';
 import { auth } from '@clerk/nextjs/server';
+import { razorpay } from '@/lib/razorpay';
+
+import { sendRefundEmail } from '@/lib/email';
 
 const MAKE_WHATSAPP_WEBHOOK = process.env.MAKE_WEBHOOK_URL || '';
+
 
 export async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
@@ -116,16 +120,53 @@ export async function POST(request: Request) {
     }
 
     if (!paymentAmountVerified) {
-      // Flag order as payment_mismatch, do NOT deduct stock
-      await db
-        .update(schema.orders)
-        .set({
-          order_status: 'payment_mismatch',
-          payment_status: 'pending',
-          payment_id: razorpay_payment_id,
-          updated_at: new Date(),
-        })
-        .where(eq(schema.orders.id, orderId));
+      // Release stock back and flag order as payment_mismatch
+      await db.transaction(async (tx: any) => {
+        const [oRecord] = await tx
+          .select()
+          .from(schema.orders)
+          .where(eq(schema.orders.id, orderId))
+          .for('update');
+        
+        if (oRecord && oRecord.order_status !== 'expired' && oRecord.order_status !== 'payment_mismatch') {
+          // 1. Put back stock
+          for (const item of oRecord.items) {
+            const [pRecord] = await tx
+              .select({ stock_quantity: schema.products.stock_quantity })
+              .from(schema.products)
+              .where(eq(schema.products.id, item.id))
+              .for('update');
+            if (pRecord) {
+              const currentStock = { ...pRecord.stock_quantity };
+              if (currentStock[item.size] !== undefined) {
+                currentStock[item.size] = (currentStock[item.size] || 0) + item.quantity;
+                await tx
+                  .update(schema.products)
+                  .set({ stock_quantity: currentStock })
+                  .where(eq(schema.products.id, item.id));
+              }
+            }
+          }
+          // 2. Revert discount usage count
+          if (oRecord.discount_code) {
+            await tx
+              .update(schema.discountCodes)
+              .set({ used_count: sql`GREATEST(0, ${schema.discountCodes.used_count} - 1)` })
+              .where(eq(schema.discountCodes.code, oRecord.discount_code));
+          }
+        }
+
+        // Flag order as payment_mismatch
+        await tx
+          .update(schema.orders)
+          .set({
+            order_status: 'payment_mismatch',
+            payment_status: 'pending',
+            payment_id: razorpay_payment_id,
+            updated_at: new Date(),
+          })
+          .where(eq(schema.orders.id, orderId));
+      });
 
       return NextResponse.json({ 
         error: 'Payment amount mismatch detected. Order flagged for manual review.', 
@@ -133,7 +174,7 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    // 5. Update order state and deduct stock inside a secure SQL transaction
+    // 5. Update order state inside a secure SQL transaction
     const confirmedOrder = await db.transaction(async (tx: any) => {
       // Re-verify order payment status in transaction
       const [oRecord] = await tx
@@ -145,33 +186,33 @@ export async function POST(request: Request) {
         return oRecord;
       }
 
-      // Deduct product stocks
-      const items = oRecord.items;
-      for (const item of items) {
-        const [pRecord] = await tx
-          .select({ stock_quantity: schema.products.stock_quantity })
-          .from(schema.products)
-          .where(eq(schema.products.id, item.id))
-          .for('update');
+      // If the order has already expired, we put the stock back when it expired, so we must deduct it again now.
+      // Otherwise, if it was still pending_payment, it is already deducted, so we do not touch the stock.
+      if (oRecord.order_status === 'expired') {
+        const items = oRecord.items;
+        for (const item of items) {
+          const [pRecord] = await tx
+            .select({ stock_quantity: schema.products.stock_quantity, name: schema.products.name })
+            .from(schema.products)
+            .where(eq(schema.products.id, item.id))
+            .for('update');
 
-        if (pRecord) {
-          const currentStock = { ...pRecord.stock_quantity };
-          if (currentStock[item.size] !== undefined) {
-            currentStock[item.size] = Math.max(0, currentStock[item.size] - item.quantity);
-            await tx
-              .update(schema.products)
-              .set({ stock_quantity: currentStock })
-              .where(eq(schema.products.id, item.id));
+          if (!pRecord) {
+            throw new Error(`Product not found.`);
           }
-        }
-      }
 
-      // Increment discount code used count if applicable
-      if (oRecord.discount_code) {
-        await tx
-          .update(schema.discountCodes)
-          .set({ used_count: sql`${schema.discountCodes.used_count} + 1` })
-          .where(eq(schema.discountCodes.code, oRecord.discount_code));
+          const currentStock = { ...pRecord.stock_quantity };
+          const available = currentStock[item.size] || 0;
+          if (available < item.quantity) {
+            throw new Error(`OUT_OF_STOCK_REFUND:${pRecord.name}`);
+          }
+
+          currentStock[item.size] = available - item.quantity;
+          await tx
+            .update(schema.products)
+            .set({ stock_quantity: currentStock })
+            .where(eq(schema.products.id, item.id));
+        }
       }
 
       // Update Order Status to paid and confirmed (state machine)
@@ -225,6 +266,63 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Server error during payment verification:', error);
+
+    if (error.message && error.message.startsWith('OUT_OF_STOCK_REFUND:')) {
+      const productName = error.message.split('OUT_OF_STOCK_REFUND:')[1];
+      const orderId = reqBody?.orderId;
+      const razorpay_payment_id = reqBody?.razorpay_payment_id;
+
+      try {
+        const [order] = await db
+          .select()
+          .from(schema.orders)
+          .where(eq(schema.orders.id, orderId))
+          .limit(1);
+
+        if (order && order.payment_status !== 'refunded') {
+          const refundAmount = order.payment_type === 'cod_with_deposit' ? 20000 : order.total;
+          
+          if (razorpay) {
+            console.log(`[AUTO-REFUND] Triggering refund for order ${order.order_number}, amount: ${refundAmount}`);
+            await razorpay.payments.refund(razorpay_payment_id, {
+              amount: refundAmount,
+              notes: {
+                reason: `Stock sold out before payment completed (late payment for ${productName})`,
+                order_id: order.id,
+                order_number: order.order_number
+              }
+            });
+          }
+
+          await db
+            .update(schema.orders)
+            .set({
+              order_status: 'failed',
+              payment_status: 'refunded',
+              payment_id: razorpay_payment_id,
+              updated_at: new Date()
+            })
+            .where(eq(schema.orders.id, orderId));
+
+          // Fire-and-forget refund notification email to the customer
+          sendRefundEmail({
+            orderNumber: order.order_number,
+            customerName: order.customer_name,
+            customerEmail: order.customer_email,
+            productName,
+            refundAmountPaise: refundAmount,
+          });
+        }
+      } catch (refundErr) {
+        console.error('Failed to auto-refund after stock out:', refundErr);
+      }
+
+      return NextResponse.json({
+        error: `Checkout time limit exceeded. The item "${productName}" has sold out. A full refund has been automatically initiated to your original payment method.`,
+        code: 'OUT_OF_STOCK_REFUNDED'
+      }, { status: 400 });
+    }
+
     try {
       const { captureException, setTag } = await import('@sentry/nextjs');
       setTag("order_id", reqBody?.orderId || 'unknown');

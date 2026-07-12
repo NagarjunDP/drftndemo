@@ -185,19 +185,19 @@ export default function AdminOrderDetail() {
     <div className="space-y-8 animate-fade-in pb-16">
       
       {/* Back Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800 pb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-200 pb-6">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push('/admin/orders')}
-            className="p-2 border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-850 text-zinc-400 hover:text-brand-offwhite rounded-md transition-colors"
+            className="p-2 border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 rounded-md transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-extrabold tracking-widest uppercase text-brand-offwhite">
+            <h1 className="text-2xl font-extrabold tracking-widest uppercase text-zinc-900">
               Order {order.order_number}
             </h1>
-            <p className="text-zinc-500 text-sm mt-1">
+            <p className="text-zinc-600 text-sm mt-1">
               Placed on {new Date(order.created_at || '').toLocaleString()}
             </p>
           </div>
@@ -215,9 +215,9 @@ export default function AdminOrderDetail() {
               '_blank'
             );
           }}
-          className="bg-[#25D366] text-white px-5 py-2.5 font-bold uppercase tracking-wider text-xs hover:bg-[#20ba56] transition-colors flex items-center gap-2 rounded"
+          className="bg-[#25D366] text-white px-5 py-2.5 font-bold uppercase tracking-wider text-xs hover:bg-[#20ba56] transition-colors flex items-center gap-2 rounded cursor-pointer"
         >
-          <Phone className="w-4 h-4 fill-white" />
+          <Phone className="w-4 h-4 fill-white text-white" />
           Contact on WhatsApp
         </button>
       </div>
@@ -228,26 +228,26 @@ export default function AdminOrderDetail() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* Order Items */}
-          <div className="bg-zinc-900/30 border border-zinc-800 p-6 md:p-8">
-            <h2 className="text-sm font-bold text-brand-offwhite uppercase tracking-widest border-b border-zinc-800 pb-3 flex items-center gap-2 mb-6">
+          <div className="bg-white border border-zinc-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-6 md:p-8">
+            <h2 className="text-sm font-bold text-zinc-900 uppercase tracking-widest border-b border-zinc-100 pb-3 flex items-center gap-2 mb-6">
               <ShoppingBag className="w-4 h-4 text-brand-red" />
               Order Items
             </h2>
 
-            <div className="divide-y divide-zinc-850">
+            <div className="divide-y divide-zinc-100">
               {order.items.map((item, idx) => (
                 <div key={`${item.id}-${idx}`} className="py-4 flex gap-4 first:pt-0 last:pb-0 items-center">
-                  <div className="w-16 h-20 bg-zinc-950 border border-zinc-800 overflow-hidden flex-shrink-0">
+                  <div className="w-16 h-20 bg-zinc-50 border border-zinc-150 overflow-hidden flex-shrink-0">
                     <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-bold text-brand-offwhite uppercase truncate">{item.name}</h4>
+                    <h4 className="text-sm font-bold text-zinc-900 uppercase truncate">{item.name}</h4>
                     <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
                       Size: {item.size} • Qty: {item.quantity}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-mono text-brand-offwhite">₹{((item.price * item.quantity) / 100).toFixed(2)}</p>
+                    <p className="text-sm font-mono text-zinc-900">₹{((item.price * item.quantity) / 100).toFixed(2)}</p>
                     <p className="text-[10px] font-mono text-zinc-500 mt-0.5">₹{(item.price / 100).toFixed(2)} each</p>
                   </div>
                 </div>
@@ -255,79 +255,79 @@ export default function AdminOrderDetail() {
             </div>
 
             {/* Subtotals breakdown */}
-            <div className="border-t border-zinc-800 mt-6 pt-4 space-y-2 text-xs">
-              <div className="flex justify-between items-center text-zinc-400">
+            <div className="border-t border-zinc-100 mt-6 pt-4 space-y-2 text-xs">
+              <div className="flex justify-between items-center text-zinc-650">
                 <span>Subtotal</span>
-                <span className="font-mono text-brand-offwhite">₹{(order.subtotal / 100).toFixed(2)}</span>
+                <span className="font-mono text-zinc-900 font-semibold">₹{(order.subtotal / 100).toFixed(2)}</span>
               </div>
               {order.discount_code && (
-                <div className="flex justify-between items-center text-green-400">
+                <div className="flex justify-between items-center text-green-700">
                   <span>Coupon ({order.discount_code})</span>
-                  <span className="font-mono">-₹{(order.discount_amount ? order.discount_amount / 100 : 0).toFixed(2)}</span>
+                  <span className="font-mono font-semibold">-₹{(order.discount_amount ? order.discount_amount / 100 : 0).toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between items-center text-zinc-400">
+              <div className="flex justify-between items-center text-zinc-650">
                 <span>Shipping Fee</span>
-                <span className="font-mono text-brand-offwhite">₹{(order.shipping_charge / 100).toFixed(2)}</span>
+                <span className="font-mono text-zinc-900 font-semibold">₹{(order.shipping_charge / 100).toFixed(2)}</span>
               </div>
-              <div className="border-t border-zinc-850 pt-3 flex justify-between items-center text-sm font-extrabold uppercase">
-                <span className="text-brand-offwhite">Total Amount</span>
-                <span className="font-mono text-brand-offwhite text-lg">₹{(order.total / 100).toFixed(2)}</span>
+              <div className="border-t border-zinc-100 pt-3 flex justify-between items-center text-sm font-extrabold uppercase">
+                <span className="text-zinc-900">Total Amount</span>
+                <span className="font-mono text-zinc-900 text-lg">₹{(order.total / 100).toFixed(2)}</span>
               </div>
             </div>
           </div>
 
           {/* Shipment Booking section (Ignored/bypassed if pickup) */}
-          <div className="bg-zinc-900/30 border border-zinc-800 p-6 md:p-8 space-y-6">
-            <h2 className="text-sm font-bold text-brand-offwhite uppercase tracking-widest border-b border-zinc-800 pb-3 flex items-center gap-2">
+          <div className="bg-white border border-zinc-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-6 md:p-8 space-y-6">
+            <h2 className="text-sm font-bold text-zinc-900 uppercase tracking-widest border-b border-zinc-100 pb-3 flex items-center gap-2">
               <Truck className="w-4 h-4 text-brand-red" />
               Logistics & Shipment
             </h2>
 
             {order.fulfillment_type === 'pickup' ? (
-              <div className="bg-zinc-950/45 border border-zinc-850 p-6 rounded text-left space-y-2">
-                <div className="flex items-center gap-2 text-purple-400">
+              <div className="bg-zinc-50 border border-zinc-200 p-6 rounded text-left space-y-2">
+                <div className="flex items-center gap-2 text-purple-700">
                   <ShoppingBag className="w-4 h-4" />
                   <span className="font-bold text-xs uppercase tracking-wider">Store Pickup Order</span>
                 </div>
-                <p className="text-xs text-zinc-500 leading-normal">
+                <p className="text-xs text-zinc-600 leading-normal">
                   Shiprocket shipping is bypassed for this order. Verification of the 6-digit customer pickup code is required at the counter.
                 </p>
-                <div className="mt-3 p-3 bg-zinc-900/50 border border-zinc-850 font-mono text-xs rounded flex justify-between items-center">
+                <div className="mt-3 p-3 bg-white border border-zinc-200 font-mono text-xs rounded flex justify-between items-center">
                   <span className="text-zinc-500">Security Code:</span>
-                  <span className="text-white font-bold tracking-widest">{order.pickup_code}</span>
+                  <span className="text-zinc-900 font-bold tracking-widest">{order.pickup_code}</span>
                 </div>
               </div>
             ) : order.tracking_number ? (
-              <div className="bg-zinc-950/40 border border-zinc-850 p-6 rounded space-y-4">
+              <div className="bg-zinc-50 border border-zinc-200 p-6 rounded space-y-4">
                 <div className="flex items-center gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
                   <div>
-                    <h4 className="text-xs uppercase text-zinc-500 font-bold tracking-wider">Shipment Status</h4>
-                    <p className="text-sm font-bold text-brand-offwhite mt-0.5">AWB Tracking Booked</p>
+                    <h4 className="text-xs uppercase text-zinc-550 font-bold tracking-wider">Shipment Status</h4>
+                    <p className="text-sm font-bold text-zinc-900 mt-0.5">AWB Tracking Booked</p>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2 border-t border-zinc-900/60">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2 border-t border-zinc-200/60">
                   <div>
                     <span className="text-zinc-500 block">Courier Partner</span>
-                    <span className="font-bold text-brand-offwhite block mt-0.5">{order.courier_partner}</span>
+                    <span className="font-bold text-zinc-900 block mt-0.5">{order.courier_partner}</span>
                   </div>
                   <div>
                     <span className="text-zinc-500 block font-mono">AWB Code</span>
-                    <span className="font-mono font-bold text-brand-offwhite block mt-0.5">{order.tracking_number}</span>
+                    <span className="font-mono font-bold text-zinc-900 block mt-0.5">{order.tracking_number}</span>
                   </div>
                 </div>
               </div>
             ) : (
               <form onSubmit={handleCreateShipment} className="space-y-4">
                 {envStatus.shiprocket ? (
-                  <div className="bg-zinc-950/40 border border-zinc-850 p-6 space-y-4 rounded text-left">
+                  <div className="bg-zinc-50 border border-zinc-200 p-6 space-y-4 rounded text-left">
                     <div className="flex items-start gap-3">
                       <AlertCircle className="w-5 h-5 text-brand-red flex-shrink-0 mt-0.5" />
                       <div>
-                        <h4 className="text-xs uppercase text-zinc-400 font-bold tracking-wider">Shiprocket Connected</h4>
-                        <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                        <h4 className="text-xs uppercase text-zinc-700 font-bold tracking-wider">Shiprocket Connected</h4>
+                        <p className="text-xs text-zinc-600 mt-1 leading-relaxed">
                           Click below to automatically send customer details, items, and values to your Shiprocket account and allocate an AWB.
                         </p>
                       </div>
@@ -335,37 +335,37 @@ export default function AdminOrderDetail() {
                     <button
                       type="submit"
                       disabled={isBookingShipment}
-                      className="bg-white hover:bg-zinc-200 text-black px-6 py-3 font-bold uppercase tracking-widest text-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="bg-zinc-900 hover:bg-zinc-800 text-white px-6 py-3 font-bold uppercase tracking-widest text-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                     >
                       {isBookingShipment ? 'Booking on Shiprocket...' : 'Book Automatic Shipment'}
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-4 border border-zinc-850 p-6 bg-zinc-950/20">
-                    <p className="text-xs text-zinc-500 leading-normal mb-2">
+                  <div className="space-y-4 border border-zinc-200 p-6 bg-amber-50/60 rounded">
+                    <p className="text-xs text-amber-800 font-semibold leading-normal mb-2">
                       ⚠️ Shiprocket credentials are not configured. Enter tracking details manually below to update client tracking pages.
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-zinc-500 block">Courier Partner</label>
+                        <label className="text-[10px] uppercase font-bold text-zinc-600 block">Courier Partner</label>
                         <input
                           type="text"
                           placeholder="e.g. Delhivery / BlueDart"
                           value={courierPartner}
                           onChange={(e) => setCourierPartner(e.target.value)}
-                          className="w-full bg-zinc-950 border border-zinc-800 text-brand-offwhite px-3 py-2 text-xs focus:outline-none focus:border-white"
+                          className="w-full bg-white border border-zinc-200 text-zinc-900 px-3 py-2 text-xs focus:outline-none focus:border-zinc-900"
                           required
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-zinc-500 block font-mono">Tracking AWB Code</label>
+                        <label className="text-[10px] uppercase font-bold text-zinc-600 block font-mono">Tracking AWB Code</label>
                         <input
                           type="text"
                           placeholder="e.g. 740616451"
                           value={trackingNumber}
                           onChange={(e) => setTrackingNumber(e.target.value)}
-                          className="w-full bg-zinc-950 border border-zinc-800 text-brand-offwhite px-3 py-2 text-xs focus:outline-none focus:border-white font-mono"
+                          className="w-full bg-white border border-zinc-200 text-zinc-900 px-3 py-2 text-xs focus:outline-none focus:border-zinc-900 font-mono"
                           required
                         />
                       </div>
@@ -374,7 +374,7 @@ export default function AdminOrderDetail() {
                     <button
                       type="submit"
                       disabled={isBookingShipment}
-                      className="bg-brand-offwhite text-brand-black px-6 py-3 font-bold uppercase tracking-widest text-xs hover:bg-white transition-colors"
+                      className="bg-zinc-900 text-white px-6 py-3 font-bold uppercase tracking-widest text-xs hover:bg-zinc-800 transition-colors cursor-pointer"
                     >
                       {isBookingShipment ? 'Saving Tracking Info...' : 'Save Manual Tracking'}
                     </button>
@@ -389,8 +389,8 @@ export default function AdminOrderDetail() {
         <div className="space-y-6">
           
           {/* Status Dropdown */}
-          <div className="bg-zinc-900/30 border border-zinc-800 p-6 md:p-8 space-y-4">
-            <h2 className="text-sm font-bold text-brand-offwhite uppercase tracking-widest border-b border-zinc-800 pb-3">
+          <div className="bg-white border border-zinc-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-6 md:p-8 space-y-4">
+            <h2 className="text-sm font-bold text-zinc-900 uppercase tracking-widest border-b border-zinc-100 pb-3">
               Order Workflow
             </h2>
 
@@ -400,10 +400,10 @@ export default function AdminOrderDetail() {
                 value={order.order_status}
                 disabled={isUpdatingStatus || order.order_status === 'delivered' || order.order_status === 'collected' || order.order_status === 'cancelled'}
                 onChange={(e) => handleStatusChange(e.target.value as any)}
-                className={`w-full bg-zinc-950 border px-4 py-3 text-xs font-bold uppercase tracking-wider rounded cursor-pointer focus:outline-none disabled:opacity-65 ${
-                  order.order_status === 'delivered' || order.order_status === 'collected' ? 'border-green-900 text-green-500' :
-                  order.order_status === 'cancelled' ? 'border-red-900 text-red-500' :
-                  'border-zinc-800 text-brand-offwhite focus:border-brand-red'
+                className={`w-full bg-white border px-4 py-3 text-xs font-bold uppercase tracking-wider rounded cursor-pointer focus:outline-none disabled:opacity-65 ${
+                  order.order_status === 'delivered' || order.order_status === 'collected' ? 'border-green-600 text-green-700' :
+                  order.order_status === 'cancelled' ? 'border-red-600 text-red-700' :
+                  'border-zinc-200 text-zinc-800 focus:border-zinc-900'
                 }`}
               >
                 <option value="pending_payment">Pending Payment</option>
@@ -423,21 +423,21 @@ export default function AdminOrderDetail() {
 
             {/* Collected verification panel */}
             {order.fulfillment_type === 'pickup' && order.order_status === 'ready_for_pickup' && (
-              <div className="mt-4 pt-4 border-t border-zinc-800 space-y-3">
-                <label className="text-[10px] uppercase font-bold text-zinc-400 block font-mono">Verify 6-Digit Code</label>
+              <div className="mt-4 pt-4 border-t border-zinc-100 space-y-3">
+                <label className="text-[10px] uppercase font-bold text-zinc-600 block font-mono">Verify 6-Digit Code</label>
                 <input
                   type="text"
                   maxLength={6}
                   placeholder="Enter Customer Code"
                   value={pickupCodeInput}
                   onChange={(e) => setPickupCodeInput(e.target.value.replace(/\D/g, ''))}
-                  className="w-full bg-zinc-950 border border-zinc-800 text-brand-offwhite font-mono text-center font-bold tracking-widest px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
+                  className="w-full bg-white border border-zinc-200 text-zinc-900 font-mono text-center font-bold tracking-widest px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
                 />
                 <button
                   type="button"
                   onClick={() => handleStatusChange('collected', { pickupCode: pickupCodeInput })}
                   disabled={pickupCodeInput.length !== 6 || isUpdatingStatus}
-                  className="w-full bg-white hover:bg-zinc-200 text-black py-2.5 font-bold uppercase tracking-wider text-xs transition-colors flex items-center justify-center gap-1 disabled:opacity-40"
+                  className="w-full bg-zinc-900 hover:bg-zinc-800 text-white py-2.5 font-bold uppercase tracking-wider text-xs transition-colors flex items-center justify-center gap-1 disabled:opacity-40 cursor-pointer"
                 >
                   Verify &amp; Mark Collected
                 </button>
@@ -445,15 +445,15 @@ export default function AdminOrderDetail() {
             )}
 
             {(order.order_status === 'delivered' || order.order_status === 'collected' || order.order_status === 'cancelled') && (
-              <p className="text-[10px] text-zinc-500 bg-zinc-950 p-2.5 rounded leading-normal border border-zinc-850">
+              <p className="text-[10px] text-zinc-650 bg-zinc-50 p-2.5 rounded leading-normal border border-zinc-200">
                 This order is in a final state (<strong>{order.order_status}</strong>). Workflow updates are locked.
               </p>
             )}
           </div>
 
           {/* Customer Details */}
-          <div className="bg-zinc-900/30 border border-zinc-800 p-6 md:p-8 space-y-5">
-            <h2 className="text-sm font-bold text-brand-offwhite uppercase tracking-widest border-b border-zinc-800 pb-3 flex items-center gap-2">
+          <div className="bg-white border border-zinc-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-6 md:p-8 space-y-5">
+            <h2 className="text-sm font-bold text-zinc-900 uppercase tracking-widest border-b border-zinc-100 pb-3 flex items-center gap-2">
               <Phone className="w-4 h-4 text-brand-red" />
               Customer Details
             </h2>
@@ -461,55 +461,55 @@ export default function AdminOrderDetail() {
             <div className="space-y-3.5 text-xs">
               <div>
                 <span className="text-zinc-500 block uppercase tracking-wider text-[10px] font-bold">Full Name</span>
-                <span className="text-brand-offwhite font-bold block mt-0.5">{order.customer_name}</span>
+                <span className="text-zinc-900 font-bold block mt-0.5">{order.customer_name}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-zinc-600 flex-shrink-0" />
-                <span className="text-zinc-400 font-medium truncate">{order.customer_email}</span>
+                <Mail className="w-4 h-4 text-zinc-550 flex-shrink-0" />
+                <span className="text-zinc-700 font-medium truncate">{order.customer_email}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-zinc-600 flex-shrink-0" />
-                <span className="text-zinc-400 font-mono font-medium">{order.customer_phone}</span>
+                <Phone className="w-4 h-4 text-zinc-550 flex-shrink-0" />
+                <span className="text-zinc-700 font-mono font-medium">{order.customer_phone}</span>
               </div>
               {order.payment_type === 'cod_with_deposit' && order.verified_phone && (
-                <div className="pt-2 border-t border-zinc-850/60 mt-2 space-y-1 bg-zinc-950/40 p-2.5 rounded">
-                  <span className="text-[10px] text-green-400 font-bold uppercase tracking-wider block flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" /> OTP Verified Mobile
+                <div className="pt-2 border-t border-zinc-100 mt-2 space-y-1 bg-zinc-50 border border-zinc-200 p-2.5 rounded">
+                  <span className="text-[10px] text-green-700 font-bold uppercase tracking-wider block flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-green-600" /> OTP Verified Mobile
                   </span>
-                  <span className="text-zinc-300 font-mono font-bold">{order.verified_phone}</span>
+                  <span className="text-zinc-900 font-mono font-bold">{order.verified_phone}</span>
                 </div>
               )}
             </div>
 
             {/* Shipping / Collection Details */}
-            <div className="pt-4 border-t border-zinc-850 space-y-3">
+            <div className="pt-4 border-t border-zinc-100 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-zinc-500 block uppercase tracking-wider text-[10px] font-bold flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-zinc-600" />
+                  <MapPin className="w-3.5 h-3.5 text-zinc-650" />
                   {order.fulfillment_type === 'pickup' ? 'Collection Point' : 'Shipping Address'}
                 </span>
                 {order.fulfillment_type !== 'pickup' && (
                   <button
                     onClick={copyToClipboard}
-                    className="text-zinc-500 hover:text-brand-offwhite text-[10px] uppercase font-bold tracking-widest border border-zinc-800 hover:border-zinc-700 bg-zinc-950/40 px-2 py-1 rounded flex items-center gap-1.5 transition-colors"
+                    className="text-zinc-600 hover:text-zinc-900 text-[10px] uppercase font-bold tracking-widest border border-zinc-200 hover:border-zinc-300 bg-zinc-50 px-2 py-1 rounded flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    {isCopied ? <Check className="w-3 h-3 text-green-500" /> : <Clipboard className="w-3 h-3" />}
+                    {isCopied ? <Check className="w-3 h-3 text-green-600" /> : <Clipboard className="w-3 h-3" />}
                     {isCopied ? 'Copied' : 'Copy'}
                   </button>
                 )}
               </div>
               
-              <div className="text-xs bg-zinc-950/40 border border-zinc-850/60 p-4 rounded text-zinc-400 space-y-1.5 leading-relaxed">
+              <div className="text-xs bg-zinc-50 border border-zinc-200 p-4 rounded text-zinc-700 space-y-1.5 leading-relaxed">
                 {order.fulfillment_type === 'pickup' ? (
                   <>
-                    <p className="font-bold text-brand-offwhite">📍 INDIRANAGAR STORE PICKUP</p>
-                    <p>DRFTN Flagship Store</p>
-                    <p>100 Feet Road, Indiranagar, Bengaluru, KA - 560038</p>
+                    <p className="font-bold text-zinc-900">📍 YELAHANKA STORE PICKUP</p>
+                    <p>DRFTN Store</p>
+                    <p>1st Floor, Kogilu Main Rd, above Sri Venkateshwar Vaibhava Veg Hotel, K B Sandra, Maruthi Nagar, Yelahanka, Bengaluru, KA - 560064</p>
                     <p className="font-mono text-zinc-500 mt-2">📞 {order.customer_phone}</p>
                   </>
                 ) : (
                   <>
-                    <p className="font-bold text-brand-offwhite">{order.customer_name}</p>
+                    <p className="font-bold text-zinc-900">{order.customer_name}</p>
                     <p>{orderAddress?.line1}</p>
                     {orderAddress?.line2 && <p>{orderAddress.line2}</p>}
                     <p>{orderAddress?.city}, {orderAddress?.state} - {orderAddress?.pincode}</p>
@@ -521,8 +521,8 @@ export default function AdminOrderDetail() {
           </div>
 
           {/* Payment Info */}
-          <div className="bg-zinc-900/30 border border-zinc-800 p-6 md:p-8 space-y-4">
-            <h2 className="text-sm font-bold text-brand-offwhite uppercase tracking-widest border-b border-zinc-800 pb-3 flex items-center gap-2">
+          <div className="bg-white border border-zinc-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] p-6 md:p-8 space-y-4">
+            <h2 className="text-sm font-bold text-zinc-900 uppercase tracking-widest border-b border-zinc-100 pb-3 flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-brand-red" />
               Payment Information
             </h2>
@@ -531,15 +531,15 @@ export default function AdminOrderDetail() {
               <div className="flex justify-between items-center">
                 <span className="text-zinc-500 block font-bold">Payment Status</span>
                 <span className={`inline-block px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded ${
-                  order.payment_status === 'paid' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'
+                  order.payment_status === 'paid' ? 'bg-green-500/10 text-green-700' : 'bg-yellow-500/10 text-yellow-700'
                 }`}>
                   {order.payment_status}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center pt-1.5 border-t border-zinc-850/40">
+              <div className="flex justify-between items-center pt-1.5 border-t border-zinc-100">
                 <span className="text-zinc-500 block font-bold">Payment Type</span>
-                <span className="font-bold text-brand-offwhite uppercase tracking-wider">
+                <span className="font-bold text-zinc-900 uppercase tracking-wider">
                   {order.payment_type === 'cod_with_deposit' ? 'COD + Deposit' : 'Prepaid (Full)'}
                 </span>
               </div>
@@ -548,11 +548,11 @@ export default function AdminOrderDetail() {
                 <>
                   <div className="flex justify-between items-center">
                     <span className="text-zinc-500 block font-bold">Paid Deposit</span>
-                    <span className="font-bold text-green-400 font-mono">₹200.00</span>
+                    <span className="font-bold text-green-700 font-mono">₹200.00</span>
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-yellow-500/5 border border-yellow-500/10 rounded">
-                    <span className="text-yellow-600 block font-bold uppercase tracking-wider text-[9px]">Remaining cash due</span>
-                    <span className="font-extrabold text-yellow-500 font-mono text-sm">
+                  <div className="flex justify-between items-center p-2 bg-amber-50 border border-amber-200 rounded">
+                    <span className="text-amber-800 block font-bold uppercase tracking-wider text-[9px]">Remaining cash due</span>
+                    <span className="font-extrabold text-amber-700 font-mono text-sm">
                       ₹{(((order.remaining_amount || 0)) / 100).toFixed(2)}
                     </span>
                   </div>
@@ -562,14 +562,14 @@ export default function AdminOrderDetail() {
               {order.payment_id && (
                 <div>
                   <span className="text-zinc-500 block font-mono">Razorpay Payment ID</span>
-                  <span className="font-mono font-bold text-brand-offwhite block mt-0.5 truncate">{order.payment_id}</span>
+                  <span className="font-mono font-bold text-zinc-900 block mt-0.5 truncate">{order.payment_id}</span>
                 </div>
               )}
 
               {order.razorpay_order_id && (
                 <div>
                   <span className="text-zinc-500 block font-mono">Razorpay Order ID</span>
-                  <span className="font-mono font-bold text-brand-offwhite block mt-0.5 truncate">{order.razorpay_order_id}</span>
+                  <span className="font-mono font-bold text-zinc-900 block mt-0.5 truncate">{order.razorpay_order_id}</span>
                 </div>
               )}
             </div>

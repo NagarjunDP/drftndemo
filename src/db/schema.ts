@@ -99,6 +99,7 @@ export const orders = pgTable('orders', {
   verified_phone: text('verified_phone'), // Phone number verified via phone.email
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  holdExpiresAt: timestamp('hold_expires_at', { withTimezone: true }),
 });
 
 // 4. Discount Codes Table
@@ -163,4 +164,22 @@ export const notificationLogs = pgTable('notification_logs', {
   sent_count: integer('sent_count').notNull().default(0),
   failed_count: integer('failed_count').notNull().default(0),
   sent_at: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 10. Auth Provider Enum
+export const authProviderEnum = pgEnum('auth_provider_enum', ['phone', 'google']);
+
+// 11. Users Table
+export const users = pgTable('users', {
+  id: text('id').primaryKey(), // Clerk ID or custom generated ID
+  phone: text('phone').unique(),
+  phoneVerified: boolean('phone_verified').notNull().default(false),
+  email: text('email').unique(),
+  emailVerified: boolean('email_verified').notNull().default(false),
+  name: text('name').notNull(),
+  notificationsOptIn: boolean('notifications_opt_in').notNull().default(true),
+  termsAcceptedAt: timestamp('terms_accepted_at', { withTimezone: true }),
+  authProvider: authProviderEnum('auth_provider').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  lastActiveAt: timestamp('last_active_at', { withTimezone: true }),
 });

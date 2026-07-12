@@ -30,8 +30,34 @@ function logApiRequest(ip: string, method: string, path: string) {
 const isAdminRoute = createRouteMatcher(['/admin(.*)', '/api/admin(.*)']);
 
 export default clerkMiddleware(async (auth, request) => {
-  const ip = request.ip || request.headers.get('x-forwarded-for') || '127.0.0.1';
   const { pathname } = request.nextUrl;
+  const secretPath = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || '/hq-drftn-secure-portal-2026-9f8z';
+
+  const adminSecretVal = process.env.ADMIN_JWT_SECRET || 'drftn_secure_secret_fallback';
+
+  // 1. Secret Path Gateway - authorize and redirect to admin
+  if (pathname === secretPath) {
+    const adminUrl = new URL('/admin', request.url);
+    const response = NextResponse.redirect(adminUrl);
+    response.cookies.set('admin_access_allowed', adminSecretVal, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 12 * 60 * 60, // 12 hours
+      path: '/'
+    });
+    return response;
+  }
+
+  // 2. Hide /admin and /api/admin from unauthorized visitors
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+    const cookieVal = request.cookies.get('admin_access_allowed')?.value;
+    if (cookieVal !== adminSecretVal) {
+      return new NextResponse('Not Found', { status: 404 });
+    }
+  }
+
+  const ip = request.ip || request.headers.get('x-forwarded-for') || '127.0.0.1';
   const method = request.method;
 
   // 1. Block obviously malicious requests (SQL injection, script injections)

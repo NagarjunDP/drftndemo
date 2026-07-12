@@ -1,20 +1,48 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { eq, and, inArray, count, sql } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
+
 import { createOrderSchema } from '@/lib/validations';
 import { razorpay } from '@/lib/razorpay';
 import { z } from 'zod';
 import { auth } from '@clerk/nextjs/server';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/jwt';
+import { cleanupExpiredOrders } from '@/lib/orderCleanup';
 
 export async function POST(request: Request) {
+  // Self-healing cleanup: run on ~2% of requests (fire-and-forget).
+  // Triggering on every request AND awaiting it serializes all concurrent
+  // checkouts through the cleanup lock — catastrophic at drop-day concurrency.
+  // Primary cleanup path is the external cron hitting /api/orders/cleanup-holds.
+  if (Math.random() < 0.02) {
+    cleanupExpiredOrders().catch((err) => console.error('Background hold cleanup failed:', err));
+  }
+
+
   let clerkUserId: string | null = null;
+  let finalUserId: string | null = null;
   let reqBody: any = null;
   try {
     // 0. Verify authentication
-    const { userId } = await auth();
-    clerkUserId = userId;
-    if (!userId) {
+    const cookieStore = cookies();
+    const sessionToken = cookieStore.get('drftn_session')?.value;
+
+    if (sessionToken) {
+      const payload = await verifyToken(sessionToken);
+      if (payload && payload.userId) {
+        finalUserId = payload.userId as string;
+      }
+    }
+
+    if (!finalUserId) {
+      const { userId } = await auth();
+      clerkUserId = userId;
+      finalUserId = userId;
+    }
+
+    if (!finalUserId) {
       return NextResponse.json(
         { error: 'Unauthorized: You must be signed in to place an order.' },
         { status: 401 }
@@ -38,49 +66,62 @@ export async function POST(request: Request) {
     const isPickup = fulfillmentType === 'pickup';
     const isCod = paymentMethod === 'cod';
 
-    // Inline phone verification check for Cash on Delivery
-    if (isCod) {
-      if (!verifiedPhone || !verifiedPhoneToken) {
-        return NextResponse.json({ error: 'Phone OTP verification is required for COD checkout.' }, { status: 400 });
-      }
+    // Inline phone verification check (mandatory for both COD and Razorpay checkouts)
+    if (!verifiedPhone || !verifiedPhoneToken) {
+      return NextResponse.json({ error: 'Phone OTP verification is required to place an order.' }, { status: 400 });
+    }
 
-      const clientId = process.env.PHONE_EMAIL_CLIENT_ID || 'mock_client_id';
-      let verifiedSuccess = false;
-      let matchedPhone = '';
+    const clientId = process.env.PHONE_EMAIL_CLIENT_ID || process.env.NEXT_PUBLIC_PHONE_EMAIL_CLIENT_ID || 'mock_client_id';
+    let verifiedSuccess = false;
+    let matchedPhone = '';
 
-      if (verifiedPhoneToken.startsWith('mock_token_')) {
+    if (verifiedPhoneToken === 'session_verified_phone') {
+      // Look up logged-in user details in database to verify phone
+      const [dbUser] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, finalUserId!))
+        .limit(1);
+      
+      if (dbUser && dbUser.phoneVerified && dbUser.phone) {
         verifiedSuccess = true;
-        matchedPhone = verifiedPhoneToken.replace('mock_token_', '');
-      } else {
-        try {
-          const verifyUrl = 'https://eapi.phone.email/getuser';
-          const phoneRes = await fetch(verifyUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              client_id: clientId,
-              access_token: verifiedPhoneToken,
-            }),
-          });
-          const phoneData = await phoneRes.json();
-          if (phoneRes.ok && phoneData.userDetails) {
-            verifiedSuccess = true;
-            matchedPhone = `${phoneData.userDetails.countryCode}${phoneData.userDetails.phoneNo}`;
-          }
-        } catch (err) {
-          console.error('Inline OTP verification check failed:', err);
+        matchedPhone = dbUser.phone;
+      }
+    } else if (verifiedPhoneToken.startsWith('mock_token_')) {
+      verifiedSuccess = true;
+      matchedPhone = verifiedPhoneToken.replace('mock_token_', '');
+    } else {
+      try {
+        const verifyUrl = 'https://eapi.phone.email/getuser';
+        const formData = new FormData();
+        formData.append('client_id', clientId);
+        formData.append('access_token', verifiedPhoneToken);
+
+        const phoneRes = await fetch(verifyUrl, {
+          method: 'POST',
+          body: formData,
+        });
+        const phoneData = await phoneRes.json();
+        const phoneNo = phoneData.phone_no || (phoneData.userDetails && phoneData.userDetails.phoneNo);
+        const countryCode = phoneData.country_code || (phoneData.userDetails && phoneData.userDetails.countryCode);
+
+        if (phoneRes.ok && phoneNo) {
+          verifiedSuccess = true;
+          matchedPhone = `${countryCode || ''}${phoneNo}`;
         }
+      } catch (err) {
+        console.error('Inline OTP verification check failed:', err);
       }
+    }
 
-      if (!verifiedSuccess) {
-        return NextResponse.json({ error: 'Invalid or expired phone verification OTP.' }, { status: 400 });
-      }
+    if (!verifiedSuccess) {
+      return NextResponse.json({ error: 'Invalid or expired phone verification OTP.' }, { status: 400 });
+    }
 
-      const cleanVerified = verifiedPhone.replace('+', '').trim();
-      const cleanMatched = matchedPhone.replace('+', '').trim();
-      if (cleanVerified !== cleanMatched) {
-        return NextResponse.json({ error: 'Verified phone number mismatch.' }, { status: 400 });
-      }
+    const cleanVerified = verifiedPhone.replace('+', '').trim();
+    const cleanMatched = matchedPhone.replace('+', '').trim();
+    if (cleanVerified !== cleanMatched) {
+      return NextResponse.json({ error: 'Verified phone number mismatch.' }, { status: 400 });
     }
 
     // 2. Fetch products from Neon database to verify active status and actual pricing
@@ -164,7 +205,7 @@ export async function POST(request: Request) {
       shippingCharge = calculatedSubtotal >= freeShippingThreshold ? 0 : defaultShippingCharge;
     }
 
-    // 5. Server-side discount validation
+    // 5. Server-side discount validation (pre-flight only — final check + lock happens inside the transaction)
     let discountAmount = 0;
     let validatedCode: string | undefined = undefined;
 
@@ -183,12 +224,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Invalid or inactive discount coupon' }, { status: 400 });
       }
 
-      // Verify expiration
+      // Verify expiration (safe to check outside tx — expiry is immutable once set)
       if (dbCode.expiresAt && new Date(dbCode.expiresAt) < new Date()) {
         return NextResponse.json({ error: 'Discount code has expired' }, { status: 400 });
       }
 
-      // Verify usage limits
+      // Early-exit preflight for usage limit — definitive re-check happens inside tx with FOR UPDATE
       if (dbCode.usageLimit !== null && dbCode.usedCount >= dbCode.usageLimit) {
         return NextResponse.json({ error: 'Discount code usage limit has been reached' }, { status: 400 });
       }
@@ -242,10 +283,19 @@ export async function POST(request: Request) {
 
     // 7. Save Order inside database transaction to guarantee auto-increment safety and stock isolation
     const createdOrder = await db.transaction(async (tx: any) => {
-      // Get order sequence count
-      const [countResult] = await tx.select({ val: count() }).from(schema.orders);
-      const nextNum = 1001 + Number(countResult.val);
-      const orderNumber = `DRFTN-${nextNum}`;
+      // Fail fast under lock contention: if we can't acquire the stock row lock
+      // within 5s, return an error immediately instead of queuing indefinitely.
+      // Under real drop concurrency, auth + validation naturally staggers arrivals
+      // so this timeout is a safety net, not a normal path.
+      await tx.execute(sql`SET LOCAL lock_timeout = '5000ms'`);
+      await tx.execute(sql`SET LOCAL statement_timeout = '8000ms'`);
+
+      // Order number: use Postgres sequence (nextval) — inherently concurrency-safe,
+      // no lock needed, no collision possible even under simultaneous drop traffic.
+      const seqRes = await tx.execute(sql`SELECT nextval('order_number_seq')::int AS seq`);
+      const seqVal = Number((seqRes as any).rows?.[0]?.seq ?? (seqRes as any)[0]?.seq);
+      const orderNumber = `DRFTN-${1000 + seqVal}`;
+
 
       // Unique pickup code if pickup order
       const pickupCode = isPickup 
@@ -255,11 +305,11 @@ export async function POST(request: Request) {
       // Shipping address fallback if pickup order
       const shippingAddr = isPickup 
         ? {
-            line1: "DRFTN Flagship Store",
-            line2: "100 Feet Road, Indiranagar",
+            line1: "DRFTN Store, 1st Floor, Kogilu Main Rd",
+            line2: "above Sri Venkateshwar Vaibhava Veg Hotel, K B Sandra, Yelahanka",
             city: "Bengaluru",
             state: "Karnataka",
-            pincode: "560038"
+            pincode: "560064"
           }
         : customerInfo.address;
 
@@ -268,11 +318,66 @@ export async function POST(request: Request) {
         ? 'confirmed' 
         : 'pending_payment';
 
+      // 1. Sort items by product ID before locking — consistent lock-acquisition order
+      // prevents deadlocks when concurrent orders share items in different sequences.
+      // e.g. Order A: [Jacket, Tee], Order B: [Tee, Jacket] → without sorting,
+      // A locks Jacket and waits for Tee while B locks Tee and waits for Jacket.
+      const sortedItems = [...orderItemsToSave].sort((a, b) => a.id.localeCompare(b.id));
+
+      for (const item of sortedItems) {
+        const [pRecord] = await tx
+          .select({ stock_quantity: schema.products.stock_quantity, name: schema.products.name })
+          .from(schema.products)
+          .where(eq(schema.products.id, item.id))
+          .for('update');
+
+        if (!pRecord) {
+          throw new Error(`Product not found.`);
+        }
+
+        const currentStock = { ...pRecord.stock_quantity };
+        const available = currentStock[item.size] || 0;
+        if (available < item.quantity) {
+          throw new Error(`Product "${pRecord.name}" in size ${item.size} has just sold out. Please remove it from your cart.`);
+        }
+
+        currentStock[item.size] = available - item.quantity;
+        await tx
+          .update(schema.products)
+          .set({ stock_quantity: currentStock })
+          .where(eq(schema.products.id, item.id));
+      }
+
+      // 2. Atomically re-check and increment discount usage with FOR UPDATE row lock.
+      // The pre-flight check above catches obvious overuse but is NOT atomic —
+      // two concurrent requests can both pass it. This is the definitive check.
+      if (validatedCode) {
+        const [lockedCode] = await tx
+          .select({ used_count: schema.discountCodes.used_count, usage_limit: schema.discountCodes.usage_limit })
+          .from(schema.discountCodes)
+          .where(eq(schema.discountCodes.code, validatedCode))
+          .for('update');
+
+        if (lockedCode && lockedCode.usage_limit !== null && lockedCode.used_count >= lockedCode.usage_limit) {
+          throw new Error(`DISCOUNT_LIMIT_REACHED:${validatedCode}`);
+        }
+
+        await tx
+          .update(schema.discountCodes)
+          .set({ used_count: sql`${schema.discountCodes.used_count} + 1` })
+          .where(eq(schema.discountCodes.code, validatedCode));
+      }
+
+
+      const holdExpiresAt = isRazorpayConfigured
+        ? new Date(Date.now() + 10 * 60 * 1000) // 10 minute hold
+        : null;
+
       // Insert pending order
       const [newOrder] = await tx
         .insert(schema.orders)
         .values({
-          user_id: userId,
+          user_id: finalUserId,
           order_number: orderNumber,
           customer_name: customerInfo.name,
           customer_email: customerInfo.email,
@@ -293,42 +398,13 @@ export async function POST(request: Request) {
           deposit_amount: isCod ? 20000 : null, // ₹200 deposit
           remaining_amount: isCod ? finalTotal - 20000 : null,
           deposit_status: isCod ? 'pending' : null,
-          verified_phone: isCod ? verifiedPhone : null,
+          verified_phone: verifiedPhone || null,
           courier_partner: null,
           tracking_number: null,
           shiprocket_order_id: null,
+          holdExpiresAt: holdExpiresAt,
         })
         .returning();
-
-      // If Razorpay is not configured, confirm immediately and deduct stock
-      if (!isRazorpayConfigured) {
-        for (const item of orderItemsToSave) {
-          const [pRecord] = await tx
-            .select({ stock_quantity: schema.products.stock_quantity })
-            .from(schema.products)
-            .where(eq(schema.products.id, item.id))
-            .for('update');
-
-          if (pRecord) {
-            const currentStock = { ...pRecord.stock_quantity };
-            if (currentStock[item.size] !== undefined) {
-              currentStock[item.size] = Math.max(0, currentStock[item.size] - item.quantity);
-              await tx
-                .update(schema.products)
-                .set({ stock_quantity: currentStock })
-                .where(eq(schema.products.id, item.id));
-            }
-          }
-        }
-
-        // If a discount code was successfully used, increment usage count
-        if (validatedCode) {
-          await tx
-            .update(schema.discountCodes)
-            .set({ used_count: sql`${schema.discountCodes.used_count} + 1` })
-            .where(eq(schema.discountCodes.code, validatedCode));
-        }
-      }
 
       return newOrder;
     });
@@ -379,6 +455,21 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Secure Order Create API Error:', error);
+    
+    if (error.message && (error.message.includes('sold out') || error.message.includes('not found'))) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (error.message?.startsWith('DISCOUNT_LIMIT_REACHED:')) {
+      return NextResponse.json({ error: 'Discount code usage limit has been reached' }, { status: 400 });
+    }
+
+    // Postgres lock_timeout or statement_timeout — request queued too long under concurrency spike
+    if (error.message?.includes('lock timeout') || error.message?.includes('statement timeout') || error.code === '55P03' || error.code === '57014') {
+      return NextResponse.json({ error: 'Checkout is busy right now. Please try again in a few seconds.' }, { status: 503 });
+    }
+
+
     try {
       const { captureException, setTag } = await import('@sentry/nextjs');
       setTag("user_id", clerkUserId || 'anonymous');

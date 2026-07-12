@@ -55,7 +55,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-wider text-brand-offwhite mb-1">Location</h3>
-                <p className="text-zinc-500 text-sm">Yelahanka, Bengaluru<br />Karnataka, India</p>
+                <p className="text-zinc-500 text-sm">1st Floor, Kogilu Main Rd, above Sri Venkateshwar Vaibhava Veg Hotel, K B Sandra, Yelahanka, Bengaluru<br />Karnataka, India - 560064</p>
               </div>
             </div>
 

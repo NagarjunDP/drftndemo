@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useCartStore } from '@/lib/cartStore';
 import { ChevronLeft, Lock, CheckCircle, Package, ArrowRight, ShieldCheck, MapPin } from 'lucide-react';
 import { useToast } from '@/components/ToastContainer';
-import { SignInButton, useUser } from '@clerk/nextjs';
+import { useAuthSession } from '@/context/AuthContext';
 
 import { useRouter } from 'next/navigation';
 
@@ -13,7 +13,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { items, getCartTotal, discountCode, clearCart } = useCartStore();
   const { addToast } = useToast();
-  const { isSignedIn, isLoaded, user } = useUser();
+  const { isSignedIn, isLoaded, user, openAuthModal, refreshUser } = useAuthSession();
   
   const [mounted, setMounted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -27,6 +27,15 @@ export default function CheckoutPage() {
   const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
   const [verifiedPhoneToken, setVerifiedPhoneToken] = useState<string | null>(null);
   const [isVerifyingPhone, setIsVerifyingPhone] = useState(false);
+
+  // Inline Checkout Verification States (for logged-out users)
+  const [inlinePhone, setInlinePhone] = useState('');
+  const [inlineTerms, setInlineTerms] = useState(false);
+  const [inlineNotifOptIn, setInlineNotifOptIn] = useState(true);
+  const [inlineStep, setInlineStep] = useState<'phone' | 'profile'>('phone');
+  const [inlineTempToken, setInlineTempToken] = useState<string | null>(null);
+  const [inlineName, setInlineName] = useState('');
+  const [inlineEmail, setInlineEmail] = useState('');
 
   // Dynamic store configuration
   const [storeConfig, setStoreConfig] = useState({
@@ -73,14 +82,19 @@ export default function CheckoutPage() {
     fetchConfig();
   }, []);
 
-  // Pre-fill user data from Clerk on login
+  // Pre-fill user data on login
   useEffect(() => {
     if (isLoaded && isSignedIn && user) {
       setFormData((prev) => ({
         ...prev,
-        name: prev.name || user.fullName || '',
-        email: prev.email || user.primaryEmailAddress?.emailAddress || '',
+        name: prev.name || user.name || '',
+        email: prev.email || user.email || '',
+        phone: prev.phone || user.phone || prev.phone || '',
       }));
+      if (user.phone) {
+        setVerifiedPhone(user.phone);
+        setVerifiedPhoneToken('session_verified_phone');
+      }
     }
   }, [isLoaded, isSignedIn, user]);
 
@@ -92,18 +106,31 @@ export default function CheckoutPage() {
         const token = event.data.accessToken;
         setIsVerifyingPhone(true);
         try {
-          const res = await fetch('/api/orders/verify-otp', {
+          const phoneToVerify = isSignedIn ? formData.phone : inlinePhone;
+          const res = await fetch('/api/auth/verify-phone', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken: token }),
+            body: JSON.stringify({
+              phone: phoneToVerify.trim(),
+              accessToken: token,
+              notificationsOptIn: inlineNotifOptIn,
+            }),
           });
           const data = await res.json();
           if (res.ok && data.success) {
-            setVerifiedPhone(data.phone);
-            setVerifiedPhoneToken(token);
-            addToast(`Phone number verified successfully: ${data.phone}`, 'success');
+            if (data.isNewUser) {
+              setInlineTempToken(data.tempToken);
+              setInlineStep('profile');
+              addToast('Phone number verified. Please complete your name.', 'success');
+            } else {
+              setVerifiedPhone(data.user.phone);
+              setVerifiedPhoneToken('session_verified_phone');
+              addToast('Verified successfully!', 'success');
+              // Update unified context
+              await refreshUser();
+            }
           } else {
-            addToast(data.error || 'Failed to verify phone number OTP', 'error');
+            addToast(data.error || 'Failed to verify phone OTP', 'error');
           }
         } catch (err) {
           console.error('Error verifying phone:', err);
@@ -116,13 +143,25 @@ export default function CheckoutPage() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [addToast]);
+  }, [inlinePhone, inlineNotifOptIn, isSignedIn, formData.phone, addToast]);
 
   const startPhoneVerification = () => {
-    const finalClientId = process.env.NEXT_PUBLIC_PHONE_EMAIL_CLIENT_ID || '20935579901768453245';
+    const phoneToVerify = isSignedIn ? formData.phone : inlinePhone;
+    if (!phoneToVerify || !/^[6-9]\d{9}$/.test(phoneToVerify.trim())) {
+      addToast('Please enter a valid 10-digit Indian mobile number first.', 'error');
+      return;
+    }
+    
+    const finalClientId = process.env.NEXT_PUBLIC_PHONE_EMAIL_CLIENT_ID || '12838653338873320869';
     const redirectUrl = window.location.origin + '/phone-callback';
     const authUrl = `https://auth.phone.email/log-in?client_id=${finalClientId}&redirect_url=${encodeURIComponent(redirectUrl)}`;
     
+    // Save details to sessionStorage in case verification loads in main tab
+    sessionStorage.setItem('pending_signup_phone', phoneToVerify.trim());
+    sessionStorage.setItem('pending_signup_name', (isSignedIn ? formData.name : inlineName) || 'Customer');
+    sessionStorage.setItem('pending_signup_notifications', inlineNotifOptIn ? 'true' : 'false');
+    sessionStorage.setItem('auth_flow_origin', 'checkout');
+
     const width = 500;
     const height = 600;
     const left = window.screen.width / 2 - width / 2;
@@ -133,6 +172,42 @@ export default function CheckoutPage() {
       'phone_email_popup',
       `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
     );
+  };
+
+  const handleInlineProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inlineName.trim()) {
+      addToast('Name is required', 'error');
+      return;
+    }
+
+    setIsVerifyingPhone(true);
+    try {
+      const res = await fetch('/api/auth/register-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: inlineName.trim(),
+          email: inlineEmail.trim() || undefined,
+          tempToken: inlineTempToken,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setVerifiedPhone(data.user.phone);
+        setVerifiedPhoneToken('session_verified_phone');
+        addToast('Profile setup complete!', 'success');
+        await refreshUser();
+      } else {
+        addToast(data.error || 'Failed to complete profile registration', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      addToast('Profile registration error', 'error');
+    } finally {
+      setIsVerifyingPhone(false);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,6 +270,13 @@ export default function CheckoutPage() {
     if (!formData.name.trim()) return addToast('Name is required', 'error');
     if (!formData.email.trim() || !formData.email.includes('@')) return addToast('Please enter a valid email address', 'error');
     if (!/^[6-9]\d{9}$/.test(formData.phone.trim())) return addToast('Please enter a valid 10-digit Indian mobile number', 'error');
+
+    // Ensure phone has been verified
+    const cleanPhone = formData.phone.trim();
+    const isMatched = verifiedPhone === cleanPhone || verifiedPhone === `+91${cleanPhone}`;
+    if (!verifiedPhone || !isMatched) {
+      return addToast('Please verify your mobile number to proceed.', 'error');
+    }
     
     if (fulfillmentType === 'delivery') {
       if (!formData.line1.trim()) return addToast('Shipping address line 1 is required', 'error');
@@ -221,8 +303,8 @@ export default function CheckoutPage() {
           discountCode: discountCode?.code || undefined,
           paymentMethod: paymentMethod,
           fulfillmentType: fulfillmentType,
-          verifiedPhone: paymentMethod === 'cod' ? verifiedPhone : undefined,
-          verifiedPhoneToken: paymentMethod === 'cod' ? verifiedPhoneToken : undefined,
+          verifiedPhone: verifiedPhone || undefined,
+          verifiedPhoneToken: verifiedPhoneToken || undefined,
           customerInfo: {
             name: formData.name.trim(),
             email: formData.email.trim(),
@@ -360,25 +442,149 @@ export default function CheckoutPage() {
 
   if (!isSignedIn) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center bg-brand-black text-brand-offwhite animate-fade-in">
-        <div className="w-20 h-20 bg-white/10 border border-white/20 rounded-full flex items-center justify-center mb-6">
-          <Lock className="w-8 h-8 text-white animate-pulse" />
-        </div>
-        <h1 className="text-2xl md:text-3xl font-extrabold tracking-widest text-brand-offwhite mb-4 uppercase">
-          Authentication Required
-        </h1>
-        <p className="text-zinc-550 mb-8 max-w-sm mx-auto text-xs leading-relaxed uppercase tracking-wider">
-          Please sign in to place your order. Accounts allow secure tracking and easy checkout.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <SignInButton mode="modal">
-            <button className="bg-white text-black px-8 py-3.5 font-bold uppercase tracking-widest text-xs hover:bg-zinc-200 transition-colors cursor-pointer border border-white">
-              Sign In to Continue
-            </button>
-          </SignInButton>
-          <Link href="/shop" className="bg-transparent border border-zinc-700 text-brand-offwhite px-8 py-3.5 font-bold uppercase tracking-widest text-xs hover:bg-zinc-800 transition-colors">
-            Back to Shop
-          </Link>
+      <div className="min-h-[75vh] flex flex-col items-center justify-center p-6 bg-brand-black text-brand-offwhite animate-fade-in">
+        <div className="w-full max-w-md bg-zinc-950 border border-white/10 p-6 md:p-8 flex flex-col items-center gap-6 shadow-[0_0_80px_rgba(0,0,0,0.9)]">
+          <div className="relative w-44 h-12 select-none mb-2">
+            <img src="/logo.png?v=3" alt="DRFTN" className="object-contain w-full h-full grayscale brightness-[100]" />
+          </div>
+
+          {inlineStep === 'phone' ? (
+            <div className="w-full space-y-5">
+              <div className="text-center space-y-2">
+                <h2 className="text-base font-black uppercase text-white tracking-widest">Checkout Verification</h2>
+                <p className="text-xs text-zinc-400 uppercase tracking-wider leading-relaxed">
+                  Verify your mobile number to complete secure checkout.
+                </p>
+              </div>
+
+              <div className="space-y-4 font-body">
+                {/* Mobile number input */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold block">
+                    Indian Mobile Number
+                  </label>
+                  <div className="relative flex">
+                    <span className="bg-zinc-900 border border-r-0 border-zinc-800 text-zinc-400 px-3 py-3 text-xs flex items-center font-mono">
+                      +91
+                    </span>
+                    <input
+                      type="tel"
+                      maxLength={10}
+                      placeholder="7406164512"
+                      value={inlinePhone}
+                      onChange={(e) => setInlinePhone(e.target.value.replace(/\D/g, ''))}
+                      className="w-full bg-zinc-900/60 border border-zinc-800 text-white px-4 py-3 text-xs focus:outline-none focus:border-white transition-colors font-mono tracking-widest"
+                    />
+                  </div>
+                </div>
+
+                {/* Checkboxes */}
+                <div className="space-y-3 pt-2">
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={inlineTerms}
+                      onChange={(e) => setInlineTerms(e.target.checked)}
+                      className="mt-0.5 accent-white shrink-0"
+                    />
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider leading-relaxed">
+                      I accept the{' '}
+                      <a href="/policies/terms-and-conditions" target="_blank" className="text-white underline">
+                        Terms & Conditions
+                      </a>{' '}
+                      and{' '}
+                      <a href="/policies/privacy-policy" target="_blank" className="text-white underline">
+                        Privacy Policy
+                      </a>{' '}
+                      *
+                    </span>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={inlineNotifOptIn}
+                      onChange={(e) => setInlineNotifOptIn(e.target.checked)}
+                      className="mt-0.5 accent-white shrink-0"
+                    />
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider leading-relaxed">
+                      Notify me about restocks, drops & order updates
+                    </span>
+                  </label>
+                </div>
+
+                {/* Submit button */}
+                <button
+                  type="button"
+                  onClick={startPhoneVerification}
+                  disabled={isVerifyingPhone || !inlineTerms}
+                  className="w-full bg-white hover:bg-zinc-200 text-black py-3.5 font-bold uppercase tracking-widest text-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mt-2 cursor-pointer border border-white"
+                >
+                  {isVerifyingPhone ? 'Verifying OTP...' : 'Send OTP via phone.email'}
+                </button>
+
+                <div className="relative py-2 text-center">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+                  <span className="relative bg-zinc-950 px-3 text-[9px] uppercase tracking-widest font-mono text-zinc-550">
+                    Or Continue With
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => openAuthModal('google')}
+                  className="w-full bg-transparent hover:bg-white/5 text-white border border-white/10 py-3.5 font-bold uppercase tracking-widest text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Google Account
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleInlineProfileSubmit} className="w-full space-y-4 font-body animate-fade-in">
+              <div className="text-center space-y-2">
+                <h3 className="text-base font-black uppercase text-white tracking-widest">Complete Profile</h3>
+                <p className="text-xs text-zinc-400 uppercase tracking-wider leading-relaxed">
+                  Enter your name to complete secure checkout registration.
+                </p>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold block">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Nagarjun D P"
+                    value={inlineName}
+                    onChange={(e) => setInlineName(e.target.value)}
+                    className="w-full bg-zinc-900/60 border border-zinc-800 text-white px-4 py-3 text-xs focus:outline-none focus:border-white transition-colors uppercase tracking-widest font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold block">
+                    Email Address (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="e.g. user@domain.com"
+                    value={inlineEmail}
+                    onChange={(e) => setInlineEmail(e.target.value)}
+                    className="w-full bg-zinc-900/60 border border-zinc-800 text-white px-4 py-3 text-xs focus:outline-none focus:border-white transition-colors font-mono"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isVerifyingPhone}
+                className="w-full bg-white hover:bg-zinc-200 text-black py-3.5 font-bold uppercase tracking-widest text-xs transition-colors disabled:opacity-50 mt-4 flex items-center justify-center gap-2"
+              >
+                {isVerifyingPhone ? 'Saving details...' : 'Proceed to Checkout Details'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     );
@@ -496,17 +702,57 @@ export default function CheckoutPage() {
                       className="w-full bg-zinc-900/50 border border-zinc-800 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-white focus:bg-zinc-900 transition-colors"
                     />
                   </div>
-                  <div className="space-y-1.5">
+                   <div className="space-y-1.5">
                     <label className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold block">Phone Number (10-digit)</label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      required
-                      placeholder="e.g. 7406164512"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      className="w-full bg-zinc-900/50 border border-zinc-800 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-white focus:bg-zinc-900 transition-colors"
-                    />
+                    {verifiedPhone ? (
+                      <div className="relative flex">
+                        <input
+                          type="tel"
+                          name="phone"
+                          required
+                          disabled
+                          value={formData.phone}
+                          className="w-full bg-zinc-900/20 border border-emerald-500/30 text-emerald-400 px-4 py-3 text-sm focus:outline-none font-mono"
+                        />
+                        <div className="absolute right-2 top-3 flex items-center gap-1 text-emerald-400 text-[9px] font-bold uppercase tracking-wider select-none">
+                          <CheckCircle className="w-3.5 h-3.5 shrink-0" /> Verified
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative flex">
+                        <input
+                          type="tel"
+                          name="phone"
+                          required
+                          placeholder="e.g. 7406164512"
+                          value={formData.phone}
+                          onChange={handleInputChange}
+                          className="w-full bg-zinc-900/50 border border-zinc-800 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-white focus:bg-zinc-900 transition-colors"
+                        />
+                        <button
+                          type="button"
+                          onClick={startPhoneVerification}
+                          disabled={isVerifyingPhone}
+                          className="absolute right-2 top-1.5 bg-white hover:bg-zinc-200 text-black text-[9px] font-bold uppercase tracking-widest px-3 py-2 cursor-pointer transition-colors"
+                        >
+                          {isVerifyingPhone ? 'Verifying...' : 'Verify OTP'}
+                        </button>
+                      </div>
+                    )}
+                    {!verifiedPhone && (
+                      <span className="text-[9px] text-zinc-500 uppercase tracking-wider block">
+                        A verified mobile number is required to proceed.
+                      </span>
+                    )}
+                    {verifiedPhone && user?.authProvider === 'google' && (
+                      <button
+                        type="button"
+                        onClick={() => { setVerifiedPhone(null); setVerifiedPhoneToken(null); }}
+                        className="text-[9px] text-zinc-500 underline uppercase tracking-wider hover:text-white mt-1 cursor-pointer block"
+                      >
+                        Use different number
+                      </button>
+                    )}
                   </div>
                 </div>
               </section>
@@ -614,8 +860,8 @@ export default function CheckoutPage() {
                     Collection Point Info
                   </h2>
                   <div className="space-y-3 font-mono text-xs text-zinc-400">
-                    <p className="text-white font-bold">DRFTN FLAGSHIP STORE</p>
-                    <p>100 Feet Road, Indiranagar, Bengaluru, Karnataka - 560038</p>
+                    <p className="text-white font-bold">DRFTN STORE</p>
+                    <p>1st Floor, Kogilu Main Rd, above Sri Venkateshwar Vaibhava Veg Hotel, K B Sandra, Maruthi Nagar, Yelahanka, Bengaluru, Karnataka - 560064</p>
                     <p className="mt-2 text-zinc-500">
                       🕒 <strong>Hours:</strong> Mon - Sun, 11:00 AM - 09:00 PM
                     </p>

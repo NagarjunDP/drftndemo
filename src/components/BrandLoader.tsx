@@ -5,17 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 
 export default function BrandLoader() {
-  const [shouldPlay, setShouldPlay] = useState(false);
+  const [shouldPlay, setShouldPlay] = useState(true);
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    const hasPlayed = sessionStorage.getItem('brand-loader-played');
-    if (!hasPlayed) {
-      setShouldPlay(true);
-      document.body.style.overflow = 'hidden';
-    } else {
-      setIsVisible(false);
-    }
+    document.body.style.overflow = 'hidden';
 
     // Safeguard cleanup on unmount
     return () => {
@@ -26,7 +20,6 @@ export default function BrandLoader() {
   const handleExitComplete = () => {
     document.body.style.overflow = '';
     setIsVisible(false);
-    sessionStorage.setItem('brand-loader-played', 'true');
   };
 
   if (!isVisible) return null;
@@ -35,6 +28,7 @@ export default function BrandLoader() {
     <AnimatePresence onExitComplete={handleExitComplete}>
       {shouldPlay && (
         <motion.div
+          id="brand-loader-overlay"
           initial={{ y: 0 }}
           exit={{ 
             y: '-100vh',

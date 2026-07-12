@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ShoppingBag, X, Menu, Search } from 'lucide-react';
 import { useCartStore } from '../lib/cartStore';
 import { useAnimationStore } from '../lib/animationStore';
-import { SignInButton, UserButton, useUser, useClerk } from '@clerk/nextjs';
+import { useAuthSession } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import AnnouncementTicker from './AnnouncementTicker';
 import { gsap } from 'gsap';
@@ -15,15 +15,13 @@ import { gsap } from 'gsap';
 const NAV_LINKS = [
   { href: '/shop', label: 'Collection' },
   { href: '/about', label: 'About' },
-  { href: '/track', label: 'Track Order' },
   { href: '/contact', label: 'Contact' },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isSignedIn, isLoaded, user } = useUser();
-  const { signOut } = useClerk();
+  const { isSignedIn, isLoaded, user, logout, openAuthModal } = useAuthSession();
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
   const setIsOpen = useCartStore((state) => state.setIsOpen);
   const isCartOpen = useCartStore((state) => state.isOpen);
@@ -193,23 +191,39 @@ export default function Navbar() {
             {/* Desktop Auth */}
             <div className="hidden lg:flex items-center pl-2">
               {isLoaded && !isSignedIn && (
-                <SignInButton mode="modal">
-                  <button
-                    className="text-[9px] font-bold tracking-[0.2em] uppercase text-brand-silver hover:text-white transition-colors duration-200"
-                    aria-label="Sign in to your account"
-                  >
-                    Sign In
-                  </button>
-                </SignInButton>
+                <button
+                  onClick={() => openAuthModal()}
+                  className="text-[9px] font-bold tracking-[0.2em] uppercase text-brand-silver hover:text-white transition-colors duration-200 cursor-pointer"
+                  aria-label="Sign in to your account"
+                >
+                  Sign In
+                </button>
               )}
               {isLoaded && isSignedIn && (
-                <UserButton
-                  appearance={{
-                    elements: {
-                      userButtonAvatarBox: 'w-6 h-6 border border-brand-muted hover:border-brand-red transition-colors rounded-full',
-                    },
-                  }}
-                />
+                <div className="relative group z-50">
+                  <button
+                    className="w-6 h-6 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-[10px] font-mono font-bold hover:border-white transition-colors cursor-pointer"
+                    aria-label="Open Account Menu"
+                  >
+                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+                  </button>
+                  <div className="absolute right-0 top-full pt-2 w-40 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200">
+                    <div className="bg-zinc-950 border border-white/10 rounded-none shadow-2xl py-1">
+                      <Link href="/account/orders" className="block px-4 py-2.5 text-[9px] font-bold tracking-wider uppercase text-zinc-400 hover:text-white hover:bg-white/5">
+                        Orders
+                      </Link>
+                      <Link href="/account/orders" className="block px-4 py-2.5 text-[9px] font-bold tracking-wider uppercase text-zinc-400 hover:text-white hover:bg-white/5 border-t border-white/5">
+                        Profile
+                      </Link>
+                      <button
+                        onClick={logout}
+                        className="w-full text-left block px-4 py-2.5 text-[9px] font-bold tracking-wider uppercase text-brand-red hover:bg-white/5 cursor-pointer border-t border-white/5"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -285,37 +299,24 @@ export default function Navbar() {
               {/* Auth Control */}
               <div className="relative">
                 {isLoaded && !isSignedIn && (
-                  <SignInButton mode="modal">
-                    <button
-                      className="px-3.5 py-1.5 rounded-full border border-white/20 bg-transparent text-[11px] font-mono tracking-widest text-white uppercase transition-colors hover:border-white/50 active:bg-white/10"
-                      aria-label="Sign In"
-                    >
-                      SIGN IN
-                    </button>
-                  </SignInButton>
+                  <button
+                    onClick={() => openAuthModal()}
+                    className="px-3.5 py-1.5 rounded-full border border-white/20 bg-transparent text-[11px] font-mono tracking-widest text-white uppercase transition-colors hover:border-white/50 active:bg-white/10 cursor-pointer"
+                    aria-label="Sign In"
+                  >
+                    SIGN IN
+                  </button>
                 )}
 
                 {isLoaded && isSignedIn && (
                   <button
                     onClick={() => setMobileDropdownOpen(!mobileDropdownOpen)}
-                    className="relative flex items-center justify-center rounded-full p-0.5"
-                    style={{ animation: 'avatarGlowPulse 3s ease-in-out infinite' }}
+                    className="relative flex items-center justify-center rounded-full p-0.5 cursor-pointer"
                     aria-label="Open Account Dropdown"
                   >
-                    {user?.imageUrl ? (
-                      <div className="relative w-8 h-8 rounded-full overflow-hidden border border-white/20">
-                        <Image
-                          src={user.imageUrl}
-                          alt={user.fullName || 'User Avatar'}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-xs font-mono font-bold">
-                        {user?.firstName?.charAt(0) || user?.username?.charAt(0) || 'U'}
-                      </div>
-                    )}
+                    <div className="w-8 h-8 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-xs font-mono font-bold">
+                      {user?.name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
                   </button>
                 )}
 
@@ -343,26 +344,18 @@ export default function Navbar() {
                             Orders
                           </Link>
                           <Link
-                            href="/profile"
+                            href="/account/orders"
                             onClick={() => setMobileDropdownOpen(false)}
                             className="px-5 py-3 text-xs uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5"
                           >
                             Profile
                           </Link>
-                          <Link
-                            href="/wishlist"
-                            onClick={() => setMobileDropdownOpen(false)}
-                            className="px-5 py-3 text-xs uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5"
-                          >
-                            Wishlist
-                          </Link>
                           <button
                             onClick={async () => {
                               setMobileDropdownOpen(false);
-                              await signOut();
-                              router.push('/');
+                              await logout();
                             }}
-                            className="px-5 py-3 text-left text-xs uppercase tracking-wider text-white hover:bg-white/10 transition-colors"
+                            className="px-5 py-3 text-left text-xs uppercase tracking-wider text-white hover:bg-white/10 transition-colors cursor-pointer"
                           >
                             Logout
                           </button>
@@ -443,19 +436,19 @@ export default function Navbar() {
           <div className="border-t border-brand-graphite/40 pt-6 flex items-center justify-between">
             <div>
               {isLoaded && !isSignedIn && (
-                <SignInButton mode="modal">
-                  <button
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-xs font-bold uppercase tracking-widest text-brand-silver hover:text-white"
-                  >
-                    Sign In / Register
-                  </button>
-                </SignInButton>
+                <button
+                  onClick={() => { setMobileMenuOpen(false); openAuthModal(); }}
+                  className="text-xs font-bold uppercase tracking-widest text-brand-silver hover:text-white cursor-pointer"
+                >
+                  Sign In / Register
+                </button>
               )}
               {isLoaded && isSignedIn && (
                 <div className="flex items-center gap-2">
-                  <UserButton afterSignOutUrl="/" />
-                  <span className="text-xs uppercase tracking-wider text-brand-stone">Account</span>
+                  <div className="w-6 h-6 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-[10px] font-mono font-bold">
+                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <span className="text-xs uppercase tracking-wider text-brand-stone font-bold font-mono">{user?.name}</span>
                 </div>
               )}
             </div>

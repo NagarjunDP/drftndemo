@@ -10,6 +10,7 @@ import { useCartStore } from '@/lib/cartStore';
 import { useAnimationStore } from '@/lib/animationStore';
 import { toast } from '@/lib/toast';
 import HeroSection from '@/components/HeroSection';
+import DesktopHeroParallax from '@/components/DesktopHeroParallax';
 import RevealSection from '@/components/RevealSection';
 import AnnouncementTicker from '@/components/AnnouncementTicker';
 import { gsap } from 'gsap';
@@ -33,7 +34,6 @@ function ProductCard({
   showActions?: boolean;
 }) {
   const [isAdding, setIsAdding] = useState(false);
-  const [isWishlisted, setIsWishlisted] = useState(false);
 
   const isOutOfStock = prod.sizes.every((s) => (prod.stock_quantity[s] || 0) === 0);
 
@@ -44,12 +44,6 @@ function ProductCard({
     setIsAdding(true);
     setTimeout(() => setIsAdding(false), 900);
     onQuickAdd(e, prod);
-  };
-
-  const handleWishlistClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsWishlisted(!isWishlisted);
   };
 
   return (
@@ -99,47 +93,26 @@ function ProductCard({
             ) : null}
 
             {/* Actions */}
-            {showActions && (
-              <>
+            {showActions && !isOutOfStock && (
+              <div className="absolute bottom-3.5 right-3.5 z-10">
                 <button
-                  onClick={handleWishlistClick}
-                  className="absolute top-3.5 right-3.5 z-20 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10 hover:bg-black/80 transition-colors"
-                  aria-label="Add to wishlist"
+                  onClick={handleQuickAddClick}
+                  disabled={isAdding}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all duration-200 active:scale-90 ${
+                    isAdding
+                      ? 'bg-white text-black border border-white'
+                      : 'bg-black/60 hover:bg-black/80 text-white border border-white/10'
+                  }`}
+                  id={`quick-add-${prod.id}`}
+                  aria-label={`Quick add ${prod.name} to cart`}
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill={isWishlisted ? '#FFFFFF' : 'none'}
-                    stroke={isWishlisted ? '#FFFFFF' : 'currentColor'}
-                    strokeWidth="1.5"
-                    className="w-4 h-4 text-white"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                  </svg>
+                  {isAdding ? (
+                    <span className="text-xs font-bold font-mono">✓</span>
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
                 </button>
-
-                {!isOutOfStock && (
-                  <div className="absolute bottom-3.5 right-3.5 z-10">
-                    <button
-                      onClick={handleQuickAddClick}
-                      disabled={isAdding}
-                      className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all duration-200 active:scale-90 ${
-                        isAdding
-                          ? 'bg-white text-black border border-white'
-                          : 'bg-black/60 hover:bg-black/80 text-white border border-white/10'
-                      }`}
-                      id={`quick-add-${prod.id}`}
-                      aria-label={`Quick add ${prod.name} to cart`}
-                    >
-                      {isAdding ? (
-                        <span className="text-xs font-bold font-mono">✓</span>
-                      ) : (
-                        <Plus className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                )}
-              </>
+              </div>
             )}
           </div>
 
@@ -264,8 +237,19 @@ export default function Homepage() {
 
       {/* ═══════════════════════════════════════════
           1. HERO — CINEMATIC WIPE & original copy
+          Mobile: existing HeroSection (untouched)
+          Desktop (≥768px): layered parallax hero
           ═══════════════════════════════════════════ */}
-      <HeroSection />
+
+      {/* Mobile hero — hidden on md+ */}
+      <div className="md:hidden">
+        <HeroSection />
+      </div>
+
+      {/* Desktop parallax hero — hidden below md */}
+      <div className="hidden md:block">
+        <DesktopHeroParallax />
+      </div>
 
       {/* ═══════════════════════════════════════════
           NEW: LIGHT TO DARK REVEAL SECTION
@@ -308,9 +292,6 @@ export default function Homepage() {
             <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t border-l border-white/20" />
             <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b border-l border-white/20" />
             
-            <span className="font-mono text-[9px] tracking-[0.25em] text-brand-stone font-bold uppercase block mb-1">
-              SYS_REF // C-02
-            </span>
             <h2
               id="categories-heading"
               className="text-white leading-none font-display uppercase text-3xl md:text-5xl tracking-tight"
@@ -401,10 +382,6 @@ export default function Homepage() {
             {/* Corner Brackets */}
             <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t border-l border-white/20" />
             <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b border-l border-white/20" />
-
-            <span className="font-mono text-[9px] tracking-[0.25em] text-brand-stone font-bold uppercase block mb-1">
-              SYS_REF // C-03
-            </span>
             <h2
               id="story-heading"
               className="text-white leading-none font-display uppercase text-3xl md:text-5xl tracking-tight"

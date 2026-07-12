@@ -3,23 +3,30 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '@/lib/db';
 import { Order, Product } from '@/types';
-import { IndianRupee, ShoppingBag, Package, TrendingUp, AlertTriangle } from 'lucide-react';
+import { IndianRupee, ShoppingBag, Package, TrendingUp, AlertTriangle, Users } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [activeUsersCount, setActiveUsersCount] = useState<number>(0);
+  const [activeUsers, setActiveUsers] = useState<{ id: string; name: string; email: string | null; phone: string | null }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [fetchedOrders, fetchedProducts] = await Promise.all([
+        const [fetchedOrders, fetchedProducts, activeUsersRes] = await Promise.all([
           db.getOrders(),
           db.getProducts(),
+          fetch('/api/admin/users/active').then(res => res.json()).catch(() => ({ success: false }))
         ]);
         setOrders(fetchedOrders);
         setProducts(fetchedProducts);
+        if (activeUsersRes && activeUsersRes.success) {
+          setActiveUsersCount(activeUsersRes.count);
+          setActiveUsers(activeUsersRes.users || []);
+        }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -27,6 +34,22 @@ export default function AdminDashboard() {
       }
     };
     fetchData();
+    
+    // Refresh active users every 30 seconds
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/admin/users/active');
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setActiveUsersCount(data.count);
+          setActiveUsers(data.users || []);
+        }
+      } catch (e) {
+        console.error('Failed to poll active users:', e);
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   if (isLoading) {
@@ -53,7 +76,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <div className="bg-white border border-zinc-200/60 p-6 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Total Revenue</h3>
@@ -94,6 +117,17 @@ export default function AdminDashboard() {
           <p className="text-2xl font-mono font-bold text-zinc-900">
             ₹{totalOrders > 0 ? ((totalRevenue / totalOrders) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
           </p>
+        </div>
+
+        <div className="bg-white border border-zinc-200/60 p-6 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Online Users</h3>
+            <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center relative">
+              <span className="absolute w-2.5 h-2.5 rounded-full bg-green-500 animate-ping opacity-75" />
+              <span className="w-2 h-2 rounded-full bg-green-500 relative" />
+            </div>
+          </div>
+          <p className="text-2xl font-mono font-bold text-zinc-900">{activeUsersCount}</p>
         </div>
       </div>
 
@@ -150,7 +184,7 @@ export default function AdminDashboard() {
             <AlertTriangle className="w-4 h-4 text-amber-500" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-900">Low Stock Alerts</h2>
           </div>
-          <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar bg-zinc-50/20">
+          <div className="p-6 space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar bg-zinc-50/20">
             {lowStockItems.length === 0 ? (
               <p className="text-zinc-400 text-sm">All inventory levels are looking good.</p>
             ) : (
@@ -177,6 +211,37 @@ export default function AdminDashboard() {
             )}
           </div>
         </div>
+
+        {/* Active Online Users */}
+        <div className="bg-white border border-zinc-200/60 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] overflow-hidden mt-6">
+          <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-green-500 animate-pulse" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-900">Active Online Users</h2>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-green-600 bg-green-50 border border-green-100 px-2 py-0.5 rounded-full">
+              {activeUsersCount} Online
+            </span>
+          </div>
+          <div className="p-6 space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar bg-zinc-50/20">
+            {activeUsers.length === 0 ? (
+              <p className="text-zinc-400 text-sm">No customers currently online.</p>
+            ) : (
+              activeUsers.map(u => (
+                <div key={u.id} className="flex items-center justify-between p-3 border border-zinc-100 bg-white rounded-xl shadow-sm">
+                  <div className="min-w-0 flex-1 pr-2">
+                    <p className="text-sm font-bold text-zinc-900 truncate">{u.name}</p>
+                    <p className="text-[10px] text-zinc-500 truncate mt-0.5">{u.email || u.phone || 'Anonymous Session'}</p>
+                  </div>
+                  <span className="text-[9px] uppercase tracking-wider text-green-600 bg-green-50 border border-green-100 px-2 py-0.5 rounded-full font-bold">
+                    Active
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );

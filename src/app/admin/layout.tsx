@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingBag, PackageSearch, Settings, LogOut, Tag, Menu, X, Bell } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, PackageSearch, Settings, LogOut, Tag, Menu, X, Bell, Users } from 'lucide-react';
 import { useAuth, useUser, useClerk } from '@clerk/nextjs';
 
 const NAV_ITEMS = [
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { label: 'Orders', href: '/admin/orders', icon: ShoppingBag },
   { label: 'Discounts', href: '/admin/discounts', icon: Tag },
   { label: 'Notifications', href: '/admin/notifications', icon: Bell },
+  { label: 'Users', href: '/admin/users', icon: Users },
   { label: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
@@ -30,8 +31,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         router.push('/admin/login');
       } else if (user) {
         const role = user.publicMetadata?.role;
-        if (role !== 'admin') {
+        const isAdmin = role === 'admin';
+        const isIntern = role === 'intern';
+        
+        if (!isAdmin && !isIntern) {
           router.push('/admin/login?error=unauthorized');
+        } else if (isIntern && pathname.startsWith('/admin/users')) {
+          router.push('/admin?error=unauthorized');
         }
       }
     }
@@ -56,8 +62,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return <div className="min-h-screen bg-zinc-950">{children}</div>;
   }
 
-  // If user metadata is loaded and role is not admin, don't render layout content while redirecting
-  if (user && user.publicMetadata?.role !== 'admin') {
+  // If user metadata is loaded and role is not admin or intern, don't render layout content while redirecting
+  if (user && user.publicMetadata?.role !== 'admin' && user.publicMetadata?.role !== 'intern') {
     return <div className="min-h-screen bg-[#F9F9F8] flex items-center justify-center text-brand-red font-bold">Redirecting...</div>;
   }
 
@@ -72,7 +78,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         <nav className="flex-1 py-6 px-4 space-y-2">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter(item => !(item.href === '/admin/users' && user?.publicMetadata?.role === 'intern')).map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
             return (
@@ -140,7 +146,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
               {/* Drawer navigation list */}
               <nav className="space-y-1">
-                {NAV_ITEMS.map((item) => {
+                {NAV_ITEMS.filter(item => !(item.href === '/admin/users' && user?.publicMetadata?.role === 'intern')).map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
                   return (

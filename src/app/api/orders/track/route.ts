@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,12 +45,30 @@ export async function GET(request: Request) {
       );
     }
 
+    // Collect all product IDs from the order items
+    const productIds = (order.items as any[] || []).map((i: any) => i.id || i.productId);
+
+    // Fetch product images as a fallback
+    const fallbackImages = productIds.length > 0
+      ? await db
+          .select()
+          .from(schema.productImages)
+          .where(inArray(schema.productImages.product_id, productIds))
+      : [];
+
+    const imageMap = new Map<string, string>();
+    fallbackImages.forEach((img: any) => {
+      if (!imageMap.has(img.product_id)) {
+        imageMap.set(img.product_id, img.image_url);
+      }
+    });
+
     // 3. Keep safe fields for client response, including totals and prices
-    const sanitizedItems = order.items.map((item: any) => ({
+    const sanitizedItems = (order.items as any[]).map((item: any) => ({
       name: item.name,
       size: item.size,
       quantity: item.quantity,
-      image: item.image || '',
+      image: item.image || imageMap.get(item.id || item.productId) || 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800&auto=format&fit=crop&q=80',
       price: item.price,
     }));
 

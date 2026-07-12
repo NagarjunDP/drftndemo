@@ -9,7 +9,10 @@ import ToastContainer from '@/components/ToastContainer';
 import AddToCartAnimation from '@/components/AddToCartAnimation';
 import BrandLoader from '@/components/BrandLoader';
 import PushPrompt from '@/components/PushPrompt';
+import LoginIncentivePopup from '@/components/LoginIncentivePopup';
+import NotificationToast from '@/components/NotificationToast';
 import { ClerkProvider } from '@clerk/nextjs';
+import { AuthSessionProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
   title: {
@@ -92,10 +95,14 @@ export default function RootLayout({
                   if (window.silktideConsentManager) {
                     initSilktide();
                   } else {
+                    var checkAttempts = 0;
                     var checkInterval = setInterval(function() {
+                      checkAttempts++;
                       if (window.silktideConsentManager) {
                         clearInterval(checkInterval);
                         initSilktide();
+                      } else if (checkAttempts > 100) {
+                        clearInterval(checkInterval);
                       }
                     }, 50);
                   }
@@ -166,6 +173,7 @@ export default function RootLayout({
           />
         </head>
         <body className="antialiased min-h-screen flex flex-col bg-brand-black text-brand-offwhite">
+          <AuthSessionProvider>
           {/* Global Navbar */}
           <Navbar />
 
@@ -185,6 +193,9 @@ export default function RootLayout({
           <AddToCartAnimation />
           <BrandLoader />
           <PushPrompt />
+          <LoginIncentivePopup />
+          <NotificationToast />
+          </AuthSessionProvider>
         </body>
       </html>
     </ClerkProvider>
