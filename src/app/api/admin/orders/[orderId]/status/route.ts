@@ -171,7 +171,7 @@ export async function PATCH(
           customerName: updatedOrder.customer_name,
           customerEmail: updatedOrder.customer_email,
           items: updatedOrder.items as any[],
-          totalPaise: updatedOrder.total_amount_paise,
+          totalPaise: updatedOrder.total,
         }).catch(err => console.error('[Status Email] Failed to send pickup success email:', err));
       });
     } else if (newStatus === 'delivered') {
@@ -181,7 +181,7 @@ export async function PATCH(
           customerName: updatedOrder.customer_name,
           customerEmail: updatedOrder.customer_email,
           items: updatedOrder.items as any[],
-          totalPaise: updatedOrder.total_amount_paise,
+          totalPaise: updatedOrder.total,
           courierPartner: updatedOrder.courier_partner,
           trackingNumber: updatedOrder.tracking_number,
         }).catch(err => console.error('[Status Email] Failed to send delivery success email:', err));
