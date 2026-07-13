@@ -54,7 +54,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider afterSignOutUrl="/">
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <head>
           <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
           <link 
@@ -172,7 +172,7 @@ export default function RootLayout({
             }}
           />
         </head>
-        <body className="antialiased min-h-screen flex flex-col bg-brand-black text-brand-offwhite">
+        <body suppressHydrationWarning className="antialiased min-h-screen flex flex-col bg-brand-black text-brand-offwhite">
           <AuthSessionProvider>
           {/* Global Navbar */}
           <Navbar />
