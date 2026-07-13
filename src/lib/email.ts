@@ -54,11 +54,13 @@ export async function sendRefundEmail({
 
     if (error) {
       console.error(`[Email] Resend error for refund email on order ${orderNumber}:`, error);
+      throw new Error(`Resend API Error: ${error.name} - ${error.message} (Code: ${(error as any).code || 'N/A'})`);
     } else {
       console.log(`[Email] Refund email sent successfully for order ${orderNumber} to ${customerEmail}`);
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error(`[Email] Failed to send refund email for order ${orderNumber}:`, err);
+    throw err;
   }
 }
 
@@ -126,10 +128,12 @@ export async function sendOrderSuccessEmail({
 
     if (error) {
       console.error(`[Email] Resend error for success email on order ${orderNumber}:`, error);
+      throw new Error(`Resend API Error: ${error.name} - ${error.message} (Code: ${(error as any).code || 'N/A'})`);
     } else {
       console.log(`[Email] Order success email sent successfully for order ${orderNumber} to ${customerEmail}`);
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error(`[Email] Failed to send order success email for order ${orderNumber}:`, err);
+    throw err;
   }
 }
