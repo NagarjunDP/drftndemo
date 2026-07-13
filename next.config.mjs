@@ -37,7 +37,24 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://checkout.razorpay.com https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://clerk.drftn.in https://clerk.drftnclothing.in; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://clerk.drftnclothing.in; img-src 'self' data: https: blob:; connect-src 'self' https: blob:; worker-src blob: 'self'; script-src-elem 'self' 'unsafe-inline' blob: https://checkout.razorpay.com https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://clerk.drftn.in https://clerk.drftnclothing.in; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.clerk.accounts.dev https://clerk.drftnclothing.in; font-src 'self' data:;",
+            value: [
+              "default-src 'self'",
+              // Scripts — Clerk JS, Razorpay, CDN, Cloudflare Turnstile (CAPTCHA)
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://checkout.razorpay.com https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://*.clerk.com https://clerk.drftn.in https://clerk.drftnclothing.in https://challenges.cloudflare.com",
+              "script-src-elem 'self' 'unsafe-inline' blob: https://checkout.razorpay.com https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://*.clerk.com https://clerk.drftn.in https://clerk.drftnclothing.in https://challenges.cloudflare.com",
+              // Styles
+              "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://clerk.drftnclothing.in https://*.clerk.com",
+              // Images
+              "img-src 'self' data: https: blob:",
+              // Connections (fetch/XHR/WebSocket)
+              "connect-src 'self' https: blob:",
+              // Workers / service workers
+              "worker-src blob: 'self'",
+              // Frames — Razorpay, Clerk, Cloudflare Turnstile
+              "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.clerk.accounts.dev https://*.clerk.com https://clerk.drftnclothing.in https://challenges.cloudflare.com",
+              // Fonts
+              "font-src 'self' data:",
+            ].join('; '),
           },
         ],
       },
