@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/admin/', '/admin/login'],
     },
-    sitemap: 'https://drftn.in/sitemap.xml',
+    sitemap: 'https://www.drftnclothing.in/sitemap.xml',
   };
 }

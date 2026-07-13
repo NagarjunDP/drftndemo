@@ -52,8 +52,7 @@ export function OrderConfirmationEmail({
               {/* Header */}
               <tr>
                 <td style={{ padding: '36px 40px 28px', borderBottom: '1px solid #1e1e1e' }}>
-                  <p style={{ margin: 0, fontSize: '28px', fontWeight: 700, letterSpacing: '4px', color: '#ffffff' }}>DRFTN</p>
-                  <p style={{ margin: '6px 0 0', fontSize: '11px', letterSpacing: '2px', color: '#666', textTransform: 'uppercase' }}>Clothing</p>
+                  <img src="https://www.drftnclothing.in/logo.png?v=3" alt="DRFTN" width="130" style={{ display: 'block', border: 'none', outline: 'none' }} />
                 </td>
               </tr>
 

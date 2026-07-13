@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://drftn.in';
+  const baseUrl = 'https://www.drftnclothing.in';
 
   // In a real production app, we would fetch dynamic product URLs here from the database.
   // For this complete boilerplate, we'll list the static core routes.

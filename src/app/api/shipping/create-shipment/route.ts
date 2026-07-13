@@ -95,7 +95,7 @@ export async function POST(request: Request) {
           customer_phone: updatedOrder.customer_phone,
           tracking_number: awb,
           courier_partner: courierName,
-          tracking_url: `https://drftn.in/track?orderNumber=${updatedOrder.order_number}&phone=${updatedOrder.customer_phone}`
+          tracking_url: `https://www.drftnclothing.in/track?orderNumber=${updatedOrder.order_number}&phone=${updatedOrder.customer_phone}`
         })
       }).catch(err => console.error('Make.com shipping notification failed:', err));
     }

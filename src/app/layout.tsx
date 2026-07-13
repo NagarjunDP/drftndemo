@@ -32,11 +32,11 @@ export const metadata: Metadata = {
     'hoodies',
   ],
   authors: [{ name: 'DRFTN CLOTHING' }],
-  metadataBase: new URL('https://drftn.in'),
+  metadataBase: new URL('https://www.drftnclothing.in'),
   openGraph: {
     title: 'DRFTN CLOTHING | Premium Streetwear Brand',
     description: 'Born in Yelahanka, Bengaluru. Drift in style with premium imported streetwear.',
-    url: 'https://drftn.in',
+    url: 'https://www.drftnclothing.in',
     siteName: 'DRFTN CLOTHING',
     locale: 'en_IN',
     type: 'website',

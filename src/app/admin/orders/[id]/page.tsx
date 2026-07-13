@@ -187,67 +187,6 @@ export default function AdminOrderDetail() {
 
   const orderAddress = order.shipping_address;
 
-  // Store Pickup Verification Lock Screen Gate
-  if (order.fulfillment_type === 'pickup' && !isCodeVerified) {
-    return (
-      <div className="space-y-8 animate-fade-in pb-16">
-        {/* Back Header */}
-        <div className="flex items-center gap-4 border-b border-zinc-200 pb-6">
-          <button
-            onClick={() => router.push('/admin/orders')}
-            className="p-2 border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 rounded-md transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-widest uppercase text-zinc-900">
-              Order {order.order_number}
-            </h1>
-            <p className="text-zinc-650 text-sm mt-1">Store Pickup Verification Required</p>
-          </div>
-        </div>
-
-        <div className="max-w-md mx-auto bg-white border border-zinc-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.03)] p-8 text-center space-y-6 rounded-[12px] mt-12">
-          <div className="w-16 h-16 bg-zinc-50 text-zinc-900 rounded-full flex items-center justify-center border border-zinc-200 mx-auto">
-            <ShoppingBag className="w-8 h-8" />
-          </div>
-          
-          <div className="space-y-2">
-            <h2 className="text-lg font-black uppercase tracking-wider text-zinc-900">Store Pickup Order</h2>
-            <p className="text-zinc-500 text-xs leading-relaxed">
-              Order details are protected. Please enter the customer&apos;s 6-digit security code to unlock items and verify collection.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <input
-              type="text"
-              maxLength={6}
-              placeholder="0 0 0 0 0 0"
-              value={pickupCodeInput}
-              onChange={(e) => setPickupCodeInput(e.target.value.replace(/\D/g, ''))}
-              className="w-full bg-zinc-50/50 border border-zinc-200 text-zinc-900 font-mono text-center text-xl font-bold tracking-[0.4em] px-4 py-3.5 focus:outline-none focus:border-zinc-900 rounded-lg"
-            />
-            <button
-              onClick={() => {
-                if (pickupCodeInput === order.pickup_code) {
-                  setIsCodeVerified(true);
-                  addToast('Security code verified successfully! Order unlocked.', 'success');
-                } else {
-                  addToast('Invalid security code. Please check the code and try again.', 'error');
-                }
-              }}
-              disabled={pickupCodeInput.length !== 6}
-              className="w-full bg-zinc-900 hover:bg-zinc-800 text-white py-3.5 font-bold uppercase tracking-widest text-xs transition-colors rounded-lg disabled:opacity-40 cursor-pointer"
-            >
-              Verify &amp; Unlock Order
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8 animate-fade-in pb-16">
       
@@ -363,6 +302,41 @@ export default function AdminOrderDetail() {
                       This store pickup order has been verified and picked up successfully.
                     </p>
                   </>
+                ) : !isCodeVerified ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-purple-700">
+                      <ShoppingBag className="w-4 h-4" />
+                      <span className="font-bold text-xs uppercase tracking-wider">Store Pickup Verification Required</span>
+                    </div>
+                    <p className="text-xs text-zinc-600 leading-normal">
+                      Please enter the customer&apos;s 6-digit security code to verify identity and unlock collection confirmation.
+                    </p>
+                    <div className="flex gap-3 max-w-sm">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        placeholder="Enter 6-Digit Code"
+                        value={pickupCodeInput}
+                        onChange={(e) => setPickupCodeInput(e.target.value.replace(/\D/g, ''))}
+                        className="flex-1 bg-white border border-zinc-200 text-zinc-900 font-mono text-center font-bold tracking-widest px-3 py-2 text-sm focus:outline-none focus:border-zinc-900 rounded"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (pickupCodeInput === order.pickup_code) {
+                            setIsCodeVerified(true);
+                            addToast('Security code verified successfully!', 'success');
+                          } else {
+                            addToast('Invalid security code. Please check and try again.', 'error');
+                          }
+                        }}
+                        disabled={pickupCodeInput.length !== 6}
+                        className="bg-zinc-900 hover:bg-zinc-800 text-white px-5 py-2 font-bold uppercase tracking-wider text-xs transition-colors disabled:opacity-40 cursor-pointer rounded"
+                      >
+                        Verify Code
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="flex items-center gap-2 text-green-700">
