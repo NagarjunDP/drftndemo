@@ -121,6 +121,10 @@ export default clerkMiddleware(async (auth, request) => {
     if (pathname === '/admin/login') {
       return NextResponse.next();
     }
+    // Exclude the clerk role promoter endpoint from admin protection to avoid chicken-and-egg lockouts
+    if (pathname === '/api/admin/set-role-clerk') {
+      return NextResponse.next();
+    }
 
     const session = await auth();
     if (!session.userId) {
