@@ -5,7 +5,7 @@ import { db } from '@/db';
 import { orders } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import Link from 'next/link';
-import { CheckCircle2, ShoppingBag, MapPin, ClipboardList } from 'lucide-react';
+import { CheckCircle, ShoppingBag, MapPin, ClipboardList } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/jwt';
 
@@ -66,7 +66,7 @@ export default async function OrderConfirmationPage({ params }: { params: { orde
         {/* Success Icon */}
         <div className="flex justify-center">
           <div className="w-16 h-16 bg-white/10 text-white rounded-full flex items-center justify-center border border-white/20">
-            <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+            <CheckCircle className="w-8 h-8 text-emerald-400" />
           </div>
         </div>
 
