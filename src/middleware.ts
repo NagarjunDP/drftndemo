@@ -149,10 +149,18 @@ export default clerkMiddleware(async (auth, request) => {
       console.error('Clerk middleware user fetch failed:', err);
     }
 
-    const allowlist = (process.env.ADMIN_ALLOWLIST_EMAILS || '')
+    const fallbackAllowlist = [
+      'admin@drftn.in',
+      'nagarjundp256@gmail.com',
+      'drftnclothing@gmail.com'
+    ];
+
+    const envAllowlist = (process.env.ADMIN_ALLOWLIST_EMAILS || '')
       .split(',')
       .map(e => e.trim().toLowerCase())
       .filter(Boolean);
+
+    const allowlist = Array.from(new Set([...fallbackAllowlist, ...envAllowlist]));
 
     const isEmailAllowed = userEmail && allowlist.includes(userEmail.toLowerCase());
     const isAdmin = userRole === 'admin';
