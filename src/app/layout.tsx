@@ -195,7 +195,10 @@ export default function RootLayout({
           <PushPrompt />
           <LoginIncentivePopup />
           <NotificationToast />
+          {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}
+          <div id="clerk-captcha" />
           </AuthSessionProvider>
+
         </body>
       </html>
     </ClerkProvider>
