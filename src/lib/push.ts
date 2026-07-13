@@ -13,7 +13,25 @@ if (vapidPublicKey && vapidPrivateKey) {
   console.warn('VAPID keys not configured, push notifications will not work.');
 }
 
-export async function sendPushNotification(subscription: any, payload: any) {
+/**
+ * Sends a web push notification to a subscriber, automatically formatting URLs to the production domain
+ * and attaching the official DRFTN logo assets.
+ */
+export async function sendPushNotification(subscription: any, rawPayload: any) {
+  const baseUrl = 'https://www.drftnclothing.in';
+  
+  // Resolve relative URLs to the production domain
+  const rawUrl = rawPayload.url || '/';
+  const url = rawUrl.startsWith('http') ? rawUrl : `${baseUrl}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+  
+  const payload = {
+    ...rawPayload,
+    url,
+    // Add absolute production logo paths for visual delivery in notifications
+    icon: 'https://www.drftnclothing.in/logo.png?v=3',
+    badge: 'https://www.drftnclothing.in/logo-cropped.png',
+  };
+
   try {
     await webpush.sendNotification(
       {
