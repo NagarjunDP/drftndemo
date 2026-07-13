@@ -228,7 +228,7 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
   const startPhoneOTP = () => {
     if (isActionInProgress) return;
     setIsActionInProgress(true);
-    const finalClientId = process.env.NEXT_PUBLIC_PHONE_EMAIL_CLIENT_ID || '12838653338873320869';
+    const finalClientId = process.env.NEXT_PUBLIC_PHONE_EMAIL_CLIENT_ID || '17565400827940866842';
     const redirectUrl = `${window.location.origin}/phone-callback`;
     const authUrl =
       `https://auth.phone.email/log-in` +

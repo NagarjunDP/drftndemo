@@ -72,24 +72,47 @@ export async function POST(request: Request) {
         .where(eq(schema.orders.id, orderId));
     });
 
-    // 3. Process refund for COD deposit if configured and paid
+    // 3. Process refund for prepaid orders or COD deposit if paid
     try {
-      const dbSettings = await db.select().from(schema.settings);
-      const refundSetting = dbSettings.find((s: any) => s.key === 'deposit_refundable_on_cancel');
-      const depositRefundable = refundSetting ? refundSetting.value === 'true' : true; // default to true
-
-      if (depositRefundable && order.payment_type === 'cod_with_deposit' && order.payment_status === 'paid' && order.payment_id) {
+      if (order.payment_status === 'paid' && order.payment_id) {
         const { razorpay } = await import('@/lib/razorpay');
         if (razorpay) {
-          await (razorpay as any).refunds.create({
-            payment_id: order.payment_id,
-            amount: 20000, // ₹200 in paise
-          });
-          console.log(`[Refund] Refunded ₹200 COD deposit for cancelled order: ${order.order_number}`);
-          await db
-            .update(schema.orders)
-            .set({ deposit_status: 'failed' }) // mark deposit status as refunded/failed
-            .where(eq(schema.orders.id, orderId));
+          let refundAmount = 0;
+          let isCodDeposit = false;
+
+          if (order.payment_type === 'prepaid') {
+            refundAmount = order.total;
+          } else if (order.payment_type === 'cod_with_deposit') {
+            const dbSettings = await db.select().from(schema.settings);
+            const refundSetting = dbSettings.find((s: any) => s.key === 'deposit_refundable_on_cancel');
+            const depositRefundable = refundSetting ? refundSetting.value === 'true' : true; // default to true
+            if (depositRefundable) {
+              refundAmount = 20000; // ₹200 deposit
+              isCodDeposit = true;
+            }
+          }
+
+          if (refundAmount > 0) {
+            await (razorpay as any).refunds.create({
+              payment_id: order.payment_id,
+              amount: refundAmount,
+              notes: {
+                reason: `Customer cancelled order ${order.order_number}`,
+                order_id: order.id,
+              }
+            });
+            console.log(`[Refund] Refunded ₹${(refundAmount / 100).toFixed(2)} for cancelled order: ${order.order_number}`);
+
+            const updateFields: any = { payment_status: 'refunded' };
+            if (isCodDeposit) {
+              updateFields.deposit_status = 'failed';
+            }
+
+            await db
+              .update(schema.orders)
+              .set(updateFields)
+              .where(eq(schema.orders.id, orderId));
+          }
         }
       }
     } catch (err) {
