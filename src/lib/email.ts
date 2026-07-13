@@ -12,7 +12,7 @@ const REPLY_TO_EMAIL = 'drftnclothing2@gmail.com';
 const ADMIN_CC_EMAIL = 'drftnclothing@gmail.com';
 
 /**
- * Sends a refund notification email to the customer using a React component.
+ * Sends a refund notification email to the customer by rendering a React component to static HTML.
  */
 export async function sendRefundEmail({
   orderNumber,
@@ -38,18 +38,24 @@ export async function sendRefundEmail({
   }
 
   try {
+    // Dynamic import to bypass Next.js static build checks for react-dom/server in route handlers
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const htmlString = renderToStaticMarkup(
+      React.createElement(RefundConfirmationEmail, {
+        orderNumber,
+        customerName,
+        productName,
+        refundAmountPaise,
+      })
+    );
+
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: [customerEmail],
       cc: [ADMIN_CC_EMAIL],
       replyTo: REPLY_TO_EMAIL,
       subject: `Refund Issued – Order ${orderNumber} | DRFTN`,
-      react: React.createElement(RefundConfirmationEmail, {
-        orderNumber,
-        customerName,
-        productName,
-        refundAmountPaise,
-      }),
+      html: htmlString,
     });
 
     if (error) {
@@ -65,7 +71,7 @@ export async function sendRefundEmail({
 }
 
 /**
- * Sends an order confirmation email to the customer using a React component.
+ * Sends an order confirmation email to the customer by rendering a React component to static HTML.
  */
 export async function sendOrderSuccessEmail({
   orderNumber,
@@ -107,13 +113,10 @@ export async function sendOrderSuccessEmail({
   }
 
   try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [customerEmail],
-      cc: [ADMIN_CC_EMAIL],
-      replyTo: REPLY_TO_EMAIL,
-      subject: `Order Confirmed – Order ${orderNumber} | DRFTN`,
-      react: React.createElement(OrderConfirmationEmail, {
+    // Dynamic import to bypass Next.js static build checks for react-dom/server in route handlers
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const htmlString = renderToStaticMarkup(
+      React.createElement(OrderConfirmationEmail, {
         orderNumber,
         customerName,
         items,
@@ -123,7 +126,16 @@ export async function sendOrderSuccessEmail({
         fulfillmentType,
         pickupCode,
         shippingAddress,
-      }),
+      })
+    );
+
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [customerEmail],
+      cc: [ADMIN_CC_EMAIL],
+      replyTo: REPLY_TO_EMAIL,
+      subject: `Order Confirmed – Order ${orderNumber} | DRFTN`,
+      html: htmlString,
     });
 
     if (error) {
