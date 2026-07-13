@@ -7,6 +7,8 @@ import { eq, inArray } from 'drizzle-orm';
 import Link from 'next/link';
 import { ArrowLeft, Clock, ShoppingBag, MapPin, Map, Calendar, AlertCircle } from 'lucide-react';
 import CancelOrderButton from './CancelOrderButton';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/jwt';
 
 export const metadata = {
   title: 'Order Details',
@@ -16,7 +18,23 @@ export const metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function OrderDetailPage({ params }: { params: { orderId: string } }) {
-  const { userId } = await auth();
+  let userId: string | null = null;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('drftn_session')?.value;
+
+  if (sessionToken) {
+    const payload = await verifyToken(sessionToken);
+    if (payload && payload.userId) {
+      userId = payload.userId as string;
+    }
+  }
+
+  if (!userId) {
+    const clerkAuth = await auth();
+    if (clerkAuth.userId) {
+      userId = clerkAuth.userId;
+    }
+  }
 
   if (!userId) {
     redirect(`/sign-in?redirect_url=/account/orders/${params.orderId}`);

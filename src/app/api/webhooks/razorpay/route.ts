@@ -5,7 +5,7 @@ import * as schema from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { razorpay } from '@/lib/razorpay';
 
-import { sendRefundEmail } from '@/lib/email';
+import { sendRefundEmail, sendOrderSuccessEmail } from '@/lib/email';
 
 const MAKE_WHATSAPP_WEBHOOK = process.env.MAKE_WEBHOOK_URL || '';
 
@@ -168,6 +168,22 @@ export async function POST(request: Request) {
             items: itemsList,
           }),
         }).catch((err) => console.error('Make.com webhook failed:', err));
+      }
+
+      // Fire success email notification
+      if (orderResult) {
+        sendOrderSuccessEmail({
+          orderNumber: orderResult.order_number,
+          customerName: orderResult.customer_name,
+          customerEmail: orderResult.customer_email,
+          items: orderResult.items as any[],
+          totalPaise: orderResult.total,
+          shippingChargePaise: orderResult.shipping_charge,
+          discountAmountPaise: orderResult.discount_amount || 0,
+          fulfillmentType: orderResult.fulfillment_type,
+          pickupCode: orderResult.pickup_code,
+          shippingAddress: orderResult.shipping_address,
+        }).catch((err) => console.error('Failed to send webhook order success email:', err));
       }
 
       console.log(`[Razorpay Webhook] Order ${order.order_number} successfully marked as PAID.`);
