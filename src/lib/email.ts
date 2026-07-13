@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_for_build');
 
 // The verified "from" address must match a domain you've added in Resend.
 // Until your custom domain is verified, use the Resend sandbox address.
