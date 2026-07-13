@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useToast } from '@/components/ToastContainer';
-import { useSignIn, useClerk } from '@clerk/nextjs';
+import { useSignIn, useClerk, useAuth as useClerkAuth } from '@clerk/nextjs';
 import { X, Loader2, Smartphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -62,6 +62,7 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
   const { addToast } = useToast();
   const { signOut } = useClerk();
   const { signIn, isLoaded: clerkSignInLoaded } = useSignIn();
+  const { isSignedIn: clerkIsSignedIn, isLoaded: clerkAuthLoaded } = useClerkAuth();
 
   // ── Core session state ──────────────────────────────────────────
   const [user, setUser] = useState<User | null>(null);
@@ -116,6 +117,15 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
     });
   }, []);
 
+  // ── Detect Clerk Google session and sync with custom auth ────────
+  useEffect(() => {
+    if (clerkAuthLoaded && clerkIsSignedIn && !user && isLoaded) {
+      // Clerk has a session (e.g. after Google OAuth redirect) but our
+      // custom auth hasn't picked it up yet. Trigger a sync.
+      refreshUser();
+    }
+  }, [clerkAuthLoaded, clerkIsSignedIn, user, isLoaded]);
+
   // ── Heartbeat (active users) ─────────────────────────────────────
   useEffect(() => {
     if (!user) return;
@@ -166,6 +176,24 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
   // ── Google Login ─────────────────────────────────────────────────
   const handleGoogleLogin = async () => {
     if (isActionInProgress) return;
+
+    // If Clerk already has a session (e.g. user already signed in via Google
+    // but custom auth didn't sync), just sync and close the modal.
+    if (clerkAuthLoaded && clerkIsSignedIn) {
+      setIsActionInProgress(true);
+      try {
+        await refreshUser();
+        closeAuthModal();
+        addToast('Welcome back! 👋', 'success');
+      } catch (err) {
+        console.error('Session sync failed:', err);
+        addToast('Failed to sync your session. Please try again.', 'error');
+      } finally {
+        setIsActionInProgress(false);
+      }
+      return;
+    }
+
     if (!clerkSignInLoaded || !signIn) {
       addToast('Authentication service is loading, please try again.', 'error');
       return;
@@ -177,9 +205,21 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
         redirectUrl: '/sso-callback',
         redirectUrlComplete: window.location.origin,
       });
-    } catch (err) {
-      console.error('Google OAuth direct trigger failed:', err);
-      addToast('Failed to start Google Sign-In', 'error');
+    } catch (err: any) {
+      // Handle "session_exists" — Clerk already has a session, just sync
+      const code = err?.errors?.[0]?.code || err?.code;
+      if (code === 'session_exists') {
+        try {
+          await refreshUser();
+          closeAuthModal();
+          addToast('Welcome back! 👋', 'success');
+        } catch (syncErr) {
+          console.error('Session sync after session_exists failed:', syncErr);
+        }
+      } else {
+        console.error('Google OAuth direct trigger failed:', err);
+        addToast('Failed to start Google Sign-In', 'error');
+      }
       setIsActionInProgress(false);
     }
   };
