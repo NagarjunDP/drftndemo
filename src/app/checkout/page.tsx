@@ -82,17 +82,28 @@ export default function CheckoutPage() {
     fetchConfig();
   }, []);
 
+  // Strip +91 / 91 prefix to always keep a clean 10-digit number
+  const normalisePhone = (raw: string | null | undefined): string => {
+    if (!raw) return '';
+    const s = raw.trim();
+    if (s.startsWith('+91') && s.length === 13) return s.slice(3);
+    if (s.startsWith('91') && s.length === 12) return s.slice(2);
+    return s;
+  };
+
   // Pre-fill user data on login
   useEffect(() => {
     if (isLoaded && isSignedIn && user) {
+      const cleanPhone = normalisePhone(user.phone);
       setFormData((prev) => ({
         ...prev,
         name: prev.name || user.name || '',
         email: prev.email || user.email || '',
-        phone: prev.phone || user.phone || prev.phone || '',
+        phone: prev.phone || cleanPhone,
       }));
       if (user.phone) {
-        setVerifiedPhone(user.phone);
+        // Store the normalised 10-digit form so comparisons always work
+        setVerifiedPhone(cleanPhone || user.phone);
         setVerifiedPhoneToken('session_verified_phone');
       }
     }
@@ -273,7 +284,8 @@ export default function CheckoutPage() {
 
     // Ensure phone has been verified
     const cleanPhone = formData.phone.trim();
-    const isMatched = verifiedPhone === cleanPhone || verifiedPhone === `+91${cleanPhone}`;
+    const normVerified = normalisePhone(verifiedPhone);
+    const isMatched = normVerified === cleanPhone || verifiedPhone === cleanPhone || verifiedPhone === `+91${cleanPhone}`;
     if (!verifiedPhone || !isMatched) {
       return addToast('Please verify your mobile number to proceed.', 'error');
     }

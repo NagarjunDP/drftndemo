@@ -37,7 +37,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://checkout.razorpay.com https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://clerk.drftn.in; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; connect-src 'self' https: blob:; worker-src blob: 'self'; script-src-elem 'self' 'unsafe-inline' blob: https://checkout.razorpay.com https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://clerk.drftn.in; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.clerk.accounts.dev; font-src 'self' data:;",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://checkout.razorpay.com https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://clerk.drftn.in https://clerk.drftnclothing.in; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://clerk.drftnclothing.in; img-src 'self' data: https: blob:; connect-src 'self' https: blob:; worker-src blob: 'self'; script-src-elem 'self' 'unsafe-inline' blob: https://checkout.razorpay.com https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://clerk.drftn.in https://clerk.drftnclothing.in; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.clerk.accounts.dev https://clerk.drftnclothing.in; font-src 'self' data:;",
           },
         ],
       },
