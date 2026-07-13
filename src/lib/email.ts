@@ -2,6 +2,8 @@ import { Resend } from 'resend';
 import * as React from 'react';
 import { OrderConfirmationEmail } from '@/components/OrderConfirmationEmail';
 import { RefundConfirmationEmail } from '@/components/RefundConfirmationEmail';
+import { PickupSuccessEmail } from '@/components/PickupSuccessEmail';
+import { DeliverySuccessEmail } from '@/components/DeliverySuccessEmail';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_for_build');
 
@@ -146,6 +148,128 @@ export async function sendOrderSuccessEmail({
     }
   } catch (err: any) {
     console.error(`[Email] Failed to send order success email for order ${orderNumber}:`, err);
+    throw err;
+  }
+}
+
+/**
+ * Sends a pickup success notification email to the customer.
+ */
+export async function sendPickupSuccessEmail({
+  orderNumber,
+  customerName,
+  customerEmail,
+  items,
+  totalPaise,
+}: {
+  orderNumber: string;
+  customerName: string;
+  customerEmail: string | null | undefined;
+  items: Array<{ name: string; size: string; quantity: number; price: number }>;
+  totalPaise: number;
+}): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[Email] RESEND_API_KEY not set — skipping pickup success email.');
+    return;
+  }
+
+  if (!customerEmail) {
+    console.warn(`[Email] No customer email on order ${orderNumber} — skipping pickup success email.`);
+    return;
+  }
+
+  try {
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const htmlString = renderToStaticMarkup(
+      React.createElement(PickupSuccessEmail, {
+        orderNumber,
+        customerName,
+        items,
+        totalPaise,
+      })
+    );
+
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [customerEmail],
+      cc: [ADMIN_CC_EMAIL],
+      replyTo: REPLY_TO_EMAIL,
+      subject: `Collected: Order ${orderNumber} | DRFTN`,
+      html: htmlString,
+    });
+
+    if (error) {
+      console.error(`[Email] Resend error for pickup success email on order ${orderNumber}:`, error);
+      throw new Error(`Resend API Error: ${error.name} - ${error.message}`);
+    } else {
+      console.log(`[Email] Pickup success email sent successfully for order ${orderNumber} to ${customerEmail}`);
+    }
+  } catch (err: any) {
+    console.error(`[Email] Failed to send pickup success email for order ${orderNumber}:`, err);
+    throw err;
+  }
+}
+
+/**
+ * Sends a delivery success notification email to the customer.
+ */
+export async function sendDeliverySuccessEmail({
+  orderNumber,
+  customerName,
+  customerEmail,
+  items,
+  totalPaise,
+  courierPartner,
+  trackingNumber,
+}: {
+  orderNumber: string;
+  customerName: string;
+  customerEmail: string | null | undefined;
+  items: Array<{ name: string; size: string; quantity: number; price: number }>;
+  totalPaise: number;
+  courierPartner?: string | null;
+  trackingNumber?: string | null;
+}): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[Email] RESEND_API_KEY not set — skipping delivery success email.');
+    return;
+  }
+
+  if (!customerEmail) {
+    console.warn(`[Email] No customer email on order ${orderNumber} — skipping delivery success email.`);
+    return;
+  }
+
+  try {
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const htmlString = renderToStaticMarkup(
+      React.createElement(DeliverySuccessEmail, {
+        orderNumber,
+        customerName,
+        items,
+        totalPaise,
+        courierPartner,
+        trackingNumber,
+      })
+    );
+
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [customerEmail],
+      cc: [ADMIN_CC_EMAIL],
+      replyTo: REPLY_TO_EMAIL,
+      subject: `Delivered: Order ${orderNumber} | DRFTN`,
+      html: htmlString,
+    });
+
+    if (error) {
+      console.error(`[Email] Resend error for delivery success email on order ${orderNumber}:`, error);
+      throw new Error(`Resend API Error: ${error.name} - ${error.message}`);
+    } else {
+      console.log(`[Email] Delivery success email sent successfully for order ${orderNumber} to ${customerEmail}`);
+    }
+  } catch (err: any) {
+    console.error(`[Email] Failed to send delivery success email for order ${orderNumber}:`, err);
     throw err;
   }
 }

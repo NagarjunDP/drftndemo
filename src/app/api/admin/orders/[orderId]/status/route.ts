@@ -171,6 +171,31 @@ export async function PATCH(
       }
     }
 
+    // 4c. Send collected or delivered success emails to customer
+    if (newStatus === 'collected') {
+      import('@/lib/email').then(({ sendPickupSuccessEmail }) => {
+        sendPickupSuccessEmail({
+          orderNumber: updatedOrder.order_number,
+          customerName: updatedOrder.customer_name,
+          customerEmail: updatedOrder.customer_email,
+          items: updatedOrder.items as any[],
+          totalPaise: updatedOrder.total_amount_paise,
+        }).catch(err => console.error('[Status Email] Failed to send pickup success email:', err));
+      });
+    } else if (newStatus === 'delivered') {
+      import('@/lib/email').then(({ sendDeliverySuccessEmail }) => {
+        sendDeliverySuccessEmail({
+          orderNumber: updatedOrder.order_number,
+          customerName: updatedOrder.customer_name,
+          customerEmail: updatedOrder.customer_email,
+          items: updatedOrder.items as any[],
+          totalPaise: updatedOrder.total_amount_paise,
+          courierPartner: updatedOrder.courier_partner,
+          trackingNumber: updatedOrder.tracking_number,
+        }).catch(err => console.error('[Status Email] Failed to send delivery success email:', err));
+      });
+    }
+
     // 5. Fire WhatsApp update webhook (Fire-and-forget)
     if (MAKE_WHATSAPP_WEBHOOK && MAKE_WHATSAPP_WEBHOOK.startsWith('http')) {
       fetch(MAKE_WHATSAPP_WEBHOOK, {
