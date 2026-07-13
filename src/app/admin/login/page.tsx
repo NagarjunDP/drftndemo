@@ -18,6 +18,9 @@ function AdminLoginContent() {
   const [errorMsg, setErrorMsg] = useState('');
 
   const unauthorizedError = searchParams.get('error') === 'unauthorized';
+  const debugEmail = searchParams.get('email');
+  const debugRole = searchParams.get('role');
+  const debugUserId = searchParams.get('userId');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,9 +69,16 @@ function AdminLoginContent() {
             {unauthorizedError && (
               <div className="bg-zinc-950 border border-zinc-800 p-4 text-xs text-white flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <div>
+                <div className="space-y-1">
                   <span className="font-bold uppercase tracking-wider block mb-1">Access Denied</span>
-                  Your account does not have admin privileges. Please sign in with an administrator account.
+                  <p>Your account does not have admin privileges. Please sign in with an administrator account.</p>
+                  {(debugEmail || debugRole || debugUserId) && (
+                    <div className="mt-2 pt-2 border-t border-zinc-900 text-[10px] text-zinc-550 font-mono space-y-0.5">
+                      <p>Email: {debugEmail || 'none'}</p>
+                      <p>Role: {debugRole || 'none'}</p>
+                      <p>Clerk ID: {debugUserId || 'none'}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

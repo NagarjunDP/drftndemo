@@ -175,7 +175,10 @@ export default clerkMiddleware(async (auth, request) => {
           { status: 403, headers: { 'Content-Type': 'application/json' } }
         );
       }
-      const unauthorizedUrl = new URL('/admin/login?error=unauthorized', request.url);
+      const unauthorizedUrl = new URL(
+        `/admin/login?error=unauthorized&email=${encodeURIComponent(userEmail || 'none')}&role=${encodeURIComponent(userRole || 'none')}&userId=${encodeURIComponent(session.userId || 'none')}`, 
+        request.url
+      );
       return NextResponse.redirect(unauthorizedUrl);
     }
   }
