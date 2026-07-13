@@ -269,7 +269,7 @@ export default function ProfileSection({ initialName, phone, authProvider }: Pro
         <div className="flex justify-end pt-2">
           <button
             type="submit"
-            disabled={!isModified || isSaving || (canEditPhone && phoneInput.trim() && !phoneVerified)}
+            disabled={!isModified || isSaving || (canEditPhone && !!phoneInput.trim() && !phoneVerified)}
             className={`w-full md:w-auto px-8 py-3.5 text-xs font-bold uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-2 ${
               isModified && !isSaving
                 ? 'bg-white hover:bg-zinc-200 text-black cursor-pointer'
