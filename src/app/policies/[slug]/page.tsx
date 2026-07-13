@@ -23,7 +23,7 @@ const POLICIES: Record<string, PolicyData> = {
     sections: [
       {
         heading: '1. Acceptance of Terms',
-        content: 'By accessing and purchasing from the DRFTN CLOTHING website (drftndemo.vercel.app or drftn.in), you agree to comply with and be bound by these Terms & Conditions. If you do not agree, please refrain from using our platform.'
+        content: 'By accessing and purchasing from the DRFTN CLOTHING website (drftnclothing.in), you agree to comply with and be bound by these Terms & Conditions. If you do not agree, please refrain from using our platform.'
       },
       {
         heading: '2. User Accounts & Security',
