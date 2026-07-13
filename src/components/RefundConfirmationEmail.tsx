@@ -46,7 +46,7 @@ export function RefundConfirmationEmail({
                     Hi {customerName},
                   </p>
                   <p style={{ margin: '0 0 20px', fontSize: '15px', lineHeight: 1.7, color: '#ccc' }}>
-                    We're sorry — your payment for <strong style={{ color: '#fff' }}>{productName}</strong>
+                    We&apos;re sorry — your payment for <strong style={{ color: '#fff' }}>{productName}</strong>
                     was received, but the item sold out moments before your checkout completed.
                   </p>
                   <p style={{ margin: '0 0 28px', fontSize: '15px', lineHeight: 1.7, color: '#ccc' }}>
@@ -67,7 +67,7 @@ export function RefundConfirmationEmail({
 
                   <p style={{ margin: '0 0 8px', fontSize: '15px', lineHeight: 1.7, color: '#ccc' }}>
                     We drop limited pieces and sometimes demand exceeds supply in the final seconds.
-                    Follow us for the next drop — you'll get first access.
+                    Follow us for the next drop — you&apos;ll get first access.
                   </p>
                 </td>
               </tr>
