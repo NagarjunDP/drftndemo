@@ -134,7 +134,7 @@ export default function CheckoutPage() {
               setInlineStep('profile');
               addToast('Phone number verified. Please complete your name.', 'success');
             } else {
-              setVerifiedPhone(data.user.phone);
+              setVerifiedPhone(normalisePhone(data.user.phone));
               setVerifiedPhoneToken('session_verified_phone');
               addToast('Verified successfully!', 'success');
               // Update unified context

@@ -252,6 +252,7 @@ export default async function CustomerOrdersPage() {
         <ProfileSection 
           initialName={dbUser.name} 
           phone={dbUser.phone || ''} 
+          authProvider={dbUser.authProvider || 'phone'}
         />
       </div>
     </main>

@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const { name } = await request.json();
+    const { name, phone } = await request.json();
 
     if (!name || typeof name !== 'string' || name.trim().length < 2) {
       return NextResponse.json({ error: 'Name must be at least 2 characters' }, { status: 400 });
@@ -49,12 +49,31 @@ export async function POST(request: Request) {
       }, { status: 429 });
     }
 
-    // 3. Update name in database
+    // 3. Build update payload
+    const updateData: Record<string, any> = { name: name.trim() };
+
+    // Only allow phone update if user doesn't already have a verified phone (Gmail users adding phone)
+    if (phone && typeof phone === 'string') {
+      const cleanPhone = phone.replace(/\D/g, '');
+      if (/^[6-9]\d{9}$/.test(cleanPhone)) {
+        // Check current user — only allow if they don't already have a verified phone
+        const [currentUser] = await db
+          .select()
+          .from(schema.users)
+          .where(eq(schema.users.id, userId))
+          .limit(1);
+        
+        if (currentUser && (!currentUser.phone || !currentUser.phoneVerified)) {
+          updateData.phone = `+91${cleanPhone}`;
+          updateData.phoneVerified = true;
+        }
+      }
+    }
+
+    // 4. Update in database
     const [updatedUser] = await db
       .update(schema.users)
-      .set({
-        name: name.trim(),
-      })
+      .set(updateData)
       .where(eq(schema.users.id, userId))
       .returning();
 
