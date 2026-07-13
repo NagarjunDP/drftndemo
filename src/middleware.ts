@@ -33,6 +33,12 @@ export default clerkMiddleware(async (auth, request) => {
   const { pathname } = request.nextUrl;
   const secretPath = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || '/hq-drftn-secure-portal-2026-9f8z';
 
+  // Pass Clerk's OAuth callback through immediately — any middleware check here
+  // would break the token-exchange step and cause a 404.
+  if (pathname.startsWith('/sso-callback')) {
+    return NextResponse.next();
+  }
+
   const adminSecretVal = process.env.ADMIN_JWT_SECRET || 'drftn_secure_secret_fallback';
 
   // 1. Secret Path Gateway - authorize and redirect to admin
