@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
+import { db } from '@/db';
+import { pushSubscriptions } from '@/db/schema';
+import { like } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,9 +45,23 @@ export async function GET() {
       });
     }
 
+    // Clean up old vercel.app staging push subscriptions to prevent stale notifications on the staging domain
+    let deletedStagingSubs = 0;
+    try {
+      const deleted = await db
+        .delete(pushSubscriptions)
+        .where(like(pushSubscriptions.endpoint, '%vercel.app%'))
+        .returning();
+      deletedStagingSubs = deleted.length;
+      console.log(`[DB Cleanup] Purged ${deletedStagingSubs} staging vercel.app subscriptions`);
+    } catch (cleanupErr) {
+      console.error('[DB Cleanup Error] Failed to delete staging subscriptions:', cleanupErr);
+    }
+
     return NextResponse.json({
       success: true,
-      results
+      results,
+      purgedStagingSubscriptionsCount: deletedStagingSubs
     });
   } catch (error: any) {
     console.error('[Clerk Promo Error]:', error);
