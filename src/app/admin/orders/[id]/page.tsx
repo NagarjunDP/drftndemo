@@ -33,7 +33,7 @@ export default function AdminOrderDetail() {
   const [isCopied, setIsCopied] = useState(false);
   const [envStatus, setEnvStatus] = useState({ razorpay: false, shiprocket: false, makeWebhook: false });
   const [pickupCodeInput, setPickupCodeInput] = useState('');
-  const [isCodeVerified, setIsCodeVerified] = useState(false);
+  const [isCodeVerified, setIsCodeVerified] = useState(true);
 
   // Manual shipping fields
   const [trackingNumber, setTrackingNumber] = useState('');
@@ -292,62 +292,17 @@ export default function AdminOrderDetail() {
 
             {order.fulfillment_type === 'pickup' ? (
               <div className="bg-zinc-50 border border-zinc-200 p-6 rounded text-left space-y-2">
-                {order.order_status === 'collected' ? (
-                  <>
-                    <div className="flex items-center gap-2 text-green-700">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span className="font-bold text-xs uppercase tracking-wider">Collected (Verified)</span>
-                    </div>
-                    <p className="text-xs text-zinc-650 leading-normal">
-                      This store pickup order has been verified and picked up successfully.
-                    </p>
-                  </>
-                ) : !isCodeVerified ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-purple-700">
-                      <ShoppingBag className="w-4 h-4" />
-                      <span className="font-bold text-xs uppercase tracking-wider">Store Pickup Verification Required</span>
-                    </div>
-                    <p className="text-xs text-zinc-600 leading-normal">
-                      Please enter the customer&apos;s 6-digit security code to verify identity and unlock collection confirmation.
-                    </p>
-                    <div className="flex gap-3 max-w-sm">
-                      <input
-                        type="text"
-                        maxLength={6}
-                        placeholder="Enter 6-Digit Code"
-                        value={pickupCodeInput}
-                        onChange={(e) => setPickupCodeInput(e.target.value.replace(/\D/g, ''))}
-                        className="flex-1 bg-white border border-zinc-200 text-zinc-900 font-mono text-center font-bold tracking-widest px-3 py-2 text-sm focus:outline-none focus:border-zinc-900 rounded"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (pickupCodeInput === order.pickup_code) {
-                            setIsCodeVerified(true);
-                            addToast('Security code verified successfully!', 'success');
-                          } else {
-                            addToast('Invalid security code. Please check and try again.', 'error');
-                          }
-                        }}
-                        disabled={pickupCodeInput.length !== 6}
-                        className="bg-zinc-900 hover:bg-zinc-800 text-white px-5 py-2 font-bold uppercase tracking-wider text-xs transition-colors disabled:opacity-40 cursor-pointer rounded"
-                      >
-                        Verify Code
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2 text-green-700">
-                      <CheckCircle2 className="w-4 h-4 animate-pulse" />
-                      <span className="font-bold text-xs uppercase tracking-wider">Pickup Code Verified</span>
-                    </div>
-                    <p className="text-xs text-zinc-650 leading-normal">
-                      The customer&apos;s 6-digit security code has been successfully verified. Hand over the items and click the green confirmation button on the right.
-                    </p>
-                  </>
-                )}
+                <div className="flex items-center gap-2 text-purple-700">
+                  <ShoppingBag className="w-4 h-4" />
+                  <span className="font-bold text-xs uppercase tracking-wider">Store Pickup Order</span>
+                </div>
+                <p className="text-xs text-zinc-600 leading-normal">
+                  Shiprocket shipping is bypassed for this order. Verification of the 6-digit customer pickup code is required at the counter.
+                </p>
+                <div className="mt-3 p-3 bg-white border border-zinc-200 font-mono text-xs rounded flex justify-between items-center">
+                  <span className="text-zinc-500">Security Code:</span>
+                  <span className="text-zinc-900 font-bold tracking-widest">{order.pickup_code}</span>
+                </div>
               </div>
             ) : order.tracking_number ? (
               <div className="bg-zinc-50 border border-zinc-200 p-6 rounded space-y-4">

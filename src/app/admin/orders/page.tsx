@@ -44,10 +44,12 @@ export default function AdminOrders() {
   };
 
   const filteredOrders = orders.filter(o => {
+    const cleanSearch = searchTerm.trim().toLowerCase();
     const matchesSearch = 
-      o.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.customer_email.toLowerCase().includes(searchTerm.toLowerCase());
+      o.order_number.toLowerCase().includes(cleanSearch) ||
+      o.customer_name.toLowerCase().includes(cleanSearch) ||
+      o.customer_email.toLowerCase().includes(cleanSearch) ||
+      (o.pickup_code && o.pickup_code.toLowerCase().includes(cleanSearch));
       
     if (!matchesSearch) return false;
     if (activeTab === 'delivery') return o.fulfillment_type !== 'pickup';
@@ -141,6 +143,11 @@ export default function AdminOrders() {
                             }`}>
                               {order.fulfillment_type === 'pickup' ? 'Pickup' : 'Delivery'}
                             </span>
+                            {order.fulfillment_type === 'pickup' && order.pickup_code && (
+                              <span className="block text-[10px] font-mono text-purple-700 font-bold mt-1 tracking-widest uppercase">
+                                Code: {order.pickup_code}
+                              </span>
+                            )}
                           </td>
                           <td className="p-4">
                             <div>
@@ -211,6 +218,11 @@ export default function AdminOrders() {
                       <div className="flex justify-between items-start text-left">
                         <div>
                           <span className="font-mono text-xs font-black text-zinc-900">{order.order_number}</span>
+                          {order.fulfillment_type === 'pickup' && order.pickup_code && (
+                            <span className="ml-2 px-1.5 py-0.5 text-[9px] font-mono bg-purple-100 text-purple-700 font-bold tracking-wider rounded uppercase">
+                              Code: {order.pickup_code}
+                            </span>
+                          )}
                           <span className="text-[10px] text-zinc-400 font-bold block mt-0.5">
                             {new Date(order.created_at || Date.now()).toLocaleDateString()}
                           </span>
