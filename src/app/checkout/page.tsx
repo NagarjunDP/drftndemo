@@ -965,13 +965,15 @@ export default function CheckoutPage() {
                                 <CheckCircle className="w-3.5 h-3.5" /> Mobile Verified
                               </p>
                               <p className="font-mono text-zinc-300">{verifiedPhone}</p>
-                              <button 
-                                type="button" 
-                                onClick={() => { setVerifiedPhone(null); setVerifiedPhoneToken(null); }}
-                                className="text-[10px] text-zinc-500 underline uppercase tracking-wider hover:text-white mt-1"
-                              >
-                                Change Number
-                              </button>
+                              {(!user || user.authProvider === 'google') && (
+                                <button 
+                                  type="button" 
+                                  onClick={() => { setVerifiedPhone(null); setVerifiedPhoneToken(null); }}
+                                  className="text-[10px] text-zinc-500 underline uppercase tracking-wider hover:text-white mt-1"
+                                >
+                                  Change Number
+                                </button>
+                              )}
                             </div>
                           ) : (
                             <div className="space-y-2">
