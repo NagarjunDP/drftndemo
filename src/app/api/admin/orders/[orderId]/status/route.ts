@@ -73,18 +73,10 @@ export async function PATCH(
       }
     }
 
-    // 3b. Verify pickup code if marking order as collected
+    // 3b. Verify that only pickup orders can be marked as collected
     if (newStatus === 'collected') {
       if (order.fulfillment_type !== 'pickup') {
         return NextResponse.json({ error: 'Cannot mark a delivery order as collected.' }, { status: 400 });
-      }
-      
-      const enteredCode = body.pickupCode?.trim();
-      if (!enteredCode || enteredCode !== order.pickup_code) {
-        return NextResponse.json({ 
-          error: 'Verification code is invalid or missing. Customer must provide the correct 6-digit code.',
-          code: 'INVALID_PICKUP_CODE'
-        }, { status: 400 });
       }
     }
 
