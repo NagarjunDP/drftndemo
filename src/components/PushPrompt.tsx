@@ -39,6 +39,21 @@ export default function PushPrompt() {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    const handleShowPrompt = () => {
+      if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return;
+      }
+      // Bypasses the 7-day checks since this is user-initiated from the footer
+      setIsVisible(true);
+    };
+
+    window.addEventListener('show-push-prompt', handleShowPrompt);
+    return () => {
+      window.removeEventListener('show-push-prompt', handleShowPrompt);
+    };
+  }, []);
+
   const handleDismiss = () => {
     localStorage.setItem('push_prompt_dismissed_at', Date.now().toString());
     setIsVisible(false);

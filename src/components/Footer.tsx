@@ -107,54 +107,13 @@ export default function Footer() {
     };
   }, []);
 
-  const handleSubscribe = async () => {
-    try {
-      if (subscribed === 'unsupported') return;
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        toast.error('Notification permission was denied.');
-        return;
-      }
-
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
-
-      const rawKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      if (!rawKey) {
-        throw new Error('VAPID public key not configured');
-      }
-      const { urlBase64ToUint8Array } = await import('@/lib/vapid');
-      const applicationServerKey = urlBase64ToUint8Array(rawKey);
-
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey,
-      });
-
-      const res = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: subscription.toJSON().keys?.p256dh,
-            auth: subscription.toJSON().keys?.auth,
-          },
-          productId: null,
-        }),
-      });
-
-      if (!res.ok) throw new Error();
-
-      localStorage.setItem('push_alerts_subscribed', 'true');
-      window.dispatchEvent(new Event('push-subscription-changed'));
-
-      setSubscribed(true);
-      toast.success("Successfully subscribed to drop alerts!");
-    } catch (err) {
-      console.error(err);
-      toast.error('Could not enable notifications. Please try again.');
+  const handleSubscribe = () => {
+    if (subscribed === 'unsupported') return;
+    if (Notification.permission === 'denied') {
+      toast.error('Notification permission is blocked. Please enable it in browser settings.');
+      return;
     }
+    window.dispatchEvent(new Event('show-push-prompt'));
   };
 
   if (pathname?.startsWith('/admin')) return null;
