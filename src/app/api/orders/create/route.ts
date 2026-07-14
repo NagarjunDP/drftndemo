@@ -267,9 +267,9 @@ export async function POST(request: Request) {
 
     logPerf('Phone OTP Verified');
 
-    // 2. Fetch products from Neon database to verify active status and actual pricing
+    // 2. Fetch products, product images, settings, discount code, and sequence number concurrently
     const productIds = items.map((i) => i.productId);
-    const dbProducts = await db
+    const dbProductsPromise = db
       .select()
       .from(schema.products)
       .where(and(
@@ -277,10 +277,37 @@ export async function POST(request: Request) {
         eq(schema.products.is_active, true)
       ));
 
-    const dbProductImages = await db
+    const dbProductImagesPromise = db
       .select()
       .from(schema.productImages)
       .where(inArray(schema.productImages.product_id, productIds));
+
+    const dbSettingsPromise = !isPickup 
+      ? db.select().from(schema.settings)
+      : Promise.resolve([]);
+
+    const cleanCode = discountCode ? discountCode.toUpperCase().trim() : null;
+    const dbCodePromise = cleanCode
+      ? db
+          .select()
+          .from(schema.discountCodes)
+          .where(and(
+            eq(schema.discountCodes.code, cleanCode),
+            eq(schema.discountCodes.is_active, true)
+          ))
+          .limit(1)
+      : Promise.resolve([]);
+
+    const seqPromise = db.execute(sql`SELECT nextval('order_number_seq')::int AS seq`);
+
+    // Await all promises in parallel
+    const [dbProducts, dbProductImages, dbSettings, dbCodeRows, seqRes] = await Promise.all([
+      dbProductsPromise,
+      dbProductImagesPromise,
+      dbSettingsPromise,
+      dbCodePromise,
+      seqPromise
+    ]);
 
     if (dbProducts.length !== new Set(productIds).size) {
       return NextResponse.json({ error: 'One or more products are inactive or not found' }, { status: 400 });
@@ -332,12 +359,11 @@ export async function POST(request: Request) {
 
     // 4. Fetch dynamic store settings from database (ignored if pickup)
     let shippingCharge = 0;
-    if (!isPickup) {
-      const dbSettings = await db.select().from(schema.settings);
-      let freeShippingThreshold = 99900; // default ₹999 in paise
-      let defaultShippingCharge = 9900;  // default ₹99 in paise
-      let codFee = 5000;                  // default ₹50 in paise
+    let freeShippingThreshold = 99900; // default ₹999 in paise
+    let defaultShippingCharge = 9900;  // default ₹99 in paise
+    let codFee = 5000;                  // default ₹50 in paise
 
+    if (!isPickup) {
       dbSettings.forEach((row: any) => {
         if (row.key === 'free_shipping_threshold') freeShippingThreshold = Number(row.value);
         if (row.key === 'default_shipping_charge') defaultShippingCharge = Number(row.value);
@@ -353,15 +379,7 @@ export async function POST(request: Request) {
     let validatedCode: string | undefined = undefined;
 
     if (discountCode) {
-      const cleanCode = discountCode.toUpperCase().trim();
-      const [dbCode] = await db
-        .select()
-        .from(schema.discountCodes)
-        .where(and(
-          eq(schema.discountCodes.code, cleanCode),
-          eq(schema.discountCodes.is_active, true)
-        ))
-        .limit(1);
+      const dbCode = dbCodeRows[0];
 
       if (!dbCode) {
         return NextResponse.json({ error: 'Invalid or inactive discount coupon' }, { status: 400 });
@@ -394,23 +412,12 @@ export async function POST(request: Request) {
 
       // Cap discount amount at subtotal
       discountAmount = Math.min(discountAmount, calculatedSubtotal);
-      validatedCode = cleanCode;
+      validatedCode = cleanCode!;
     }
 
     const discountedSubtotal = Math.max(0, calculatedSubtotal - discountAmount);
 
     if (!isPickup) {
-      // Re-verify free shipping eligibility on discounted subtotal
-      const dbSettings = await db.select().from(schema.settings);
-      let freeShippingThreshold = 99900;
-      let defaultShippingCharge = 9900;
-      let codFee = 5000;
-      dbSettings.forEach((row: any) => {
-        if (row.key === 'free_shipping_threshold') freeShippingThreshold = Number(row.value);
-        if (row.key === 'default_shipping_charge') defaultShippingCharge = Number(row.value);
-        if (row.key === 'cod_fee') codFee = Number(row.value);
-      });
-      
       shippingCharge = discountedSubtotal >= freeShippingThreshold ? 0 : defaultShippingCharge;
       
       // Add COD fee if applicable
@@ -427,8 +434,6 @@ export async function POST(request: Request) {
     // Pre-generate order UUID
     const orderId = crypto.randomUUID();
 
-    // Query sequence outside transaction
-    const seqRes = await db.execute(sql`SELECT nextval('order_number_seq')::int AS seq`);
     const seqVal = Number((seqRes as any).rows?.[0]?.seq ?? (seqRes as any)[0]?.seq);
     const orderNumber = `DRFTN-${1000 + seqVal}`;
 
@@ -512,45 +517,43 @@ export async function POST(request: Request) {
       const sortedItems = [...orderItemsToSave].sort((a, b) => a.id.localeCompare(b.id));
 
       for (const item of sortedItems) {
-        const [pRecord] = await tx
-          .select({ stock_quantity: schema.products.stock_quantity, name: schema.products.name })
-          .from(schema.products)
-          .where(eq(schema.products.id, item.id))
-          .for('update');
+        // Run atomic UPDATE statement returning updated stock to reduce roundtrips.
+        // Postgres automatically acquires an exclusive row lock during UPDATE.
+        const res = await tx.execute(sql`
+          UPDATE products
+          SET stock = jsonb_set(
+            stock, 
+            ARRAY[${item.size}], 
+            to_jsonb(GREATEST(0, (stock->>${item.size})::int - ${item.quantity}))
+          )
+          WHERE id = ${item.id} AND (stock->>${item.size})::int >= ${item.quantity}
+          RETURNING stock, name
+        `);
 
-        if (!pRecord) {
-          throw new Error(`Product not found.`);
+        const rows = (res as any).rows ?? res;
+        const rowCount = (res as any).rowCount ?? rows.length;
+
+        if (rowCount === 0 || !rows || rows.length === 0) {
+          throw new Error(`Product in size ${item.size} has just sold out. Please remove it from your cart.`);
         }
-
-        const currentStock = { ...pRecord.stock_quantity };
-        const available = currentStock[item.size] || 0;
-        if (available < item.quantity) {
-          throw new Error(`Product "${pRecord.name}" in size ${item.size} has just sold out. Please remove it from your cart.`);
-        }
-
-        currentStock[item.size] = available - item.quantity;
-        await tx
-          .update(schema.products)
-          .set({ stock_quantity: currentStock })
-          .where(eq(schema.products.id, item.id));
       }
 
-      // 2. Atomically re-check and increment discount usage with FOR UPDATE row lock.
+      // 2. Atomically re-check and increment discount usage.
       if (validatedCode) {
-        const [lockedCode] = await tx
-          .select({ used_count: schema.discountCodes.used_count, usage_limit: schema.discountCodes.usage_limit })
-          .from(schema.discountCodes)
-          .where(eq(schema.discountCodes.code, validatedCode))
-          .for('update');
+        // Run atomic UPDATE statement returning updated used_count to reduce roundtrips.
+        const res = await tx.execute(sql`
+          UPDATE discount_codes
+          SET used_count = used_count + 1
+          WHERE code = ${validatedCode} AND (usage_limit IS NULL OR used_count < usage_limit)
+          RETURNING used_count
+        `);
 
-        if (lockedCode && lockedCode.usage_limit !== null && lockedCode.used_count >= lockedCode.usage_limit) {
+        const rows = (res as any).rows ?? res;
+        const rowCount = (res as any).rowCount ?? rows.length;
+
+        if (rowCount === 0 || !rows || rows.length === 0) {
           throw new Error(`DISCOUNT_LIMIT_REACHED:${validatedCode}`);
         }
-
-        await tx
-          .update(schema.discountCodes)
-          .set({ used_count: sql`${schema.discountCodes.used_count} + 1` })
-          .where(eq(schema.discountCodes.code, validatedCode));
       }
 
       // Insert pending order directly with pre-generated orderId and razorpayOrderId!
