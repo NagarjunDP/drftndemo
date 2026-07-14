@@ -8,7 +8,7 @@ import { createOrderSchema } from '@/lib/validations';
 import { razorpay } from '@/lib/razorpay';
 import { z } from 'zod';
 import { auth } from '@clerk/nextjs/server';
-import { cookies } from 'next/headers';
+
 import { verifyToken } from '@/lib/jwt';
 import { cleanupExpiredOrders } from '@/lib/orderCleanup';
 
@@ -39,8 +39,15 @@ export async function POST(request: Request) {
 
   try {
     // 0. Verify authentication
-    const cookieStore = cookies();
-    const sessionToken = cookieStore.get('drftn_session')?.value;
+    // Read the session cookie directly from the request header to avoid the
+    // next/headers cookies() "Secure Origin" crash on load-test and external
+    // curl requests that don't have a browser-provided Origin header.
+    const rawCookie = request.headers.get('cookie') || '';
+    const sessionToken = rawCookie
+      .split(';')
+      .map(c => c.trim())
+      .find(c => c.startsWith('drftn_session='))
+      ?.split('=')?.[1];
 
     if (sessionToken) {
       const payload = await verifyToken(sessionToken);
