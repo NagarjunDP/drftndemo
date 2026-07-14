@@ -64,11 +64,18 @@ export async function POST(request: Request) {
     }
 
     if (!finalUserId) {
-      const authStart = performance.now();
-      const { userId } = await auth();
-      console.log(`[Perf] Clerk auth() call took: ${(performance.now() - authStart).toFixed(1)}ms`);
-      clerkUserId = userId;
-      finalUserId = userId;
+      try {
+        const authStart = performance.now();
+        const { userId } = await auth();
+        console.log(`[Perf] Clerk auth() call took: ${(performance.now() - authStart).toFixed(1)}ms`);
+        clerkUserId = userId;
+        finalUserId = userId;
+      } catch (clerkErr: any) {
+        // Clerk throws SecureOriginError when clerkMiddleware() context is absent
+        // (e.g. programmatic curl, load-test requests without a browser session).
+        // Treat as unauthenticated — the finalUserId null-check below will return 401.
+        console.warn('[Auth] Clerk auth() threw, treating as unauthenticated:', clerkErr?.message ?? clerkErr);
+      }
     }
 
     if (!finalUserId) {
