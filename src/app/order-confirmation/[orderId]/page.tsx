@@ -29,9 +29,13 @@ export default async function OrderConfirmationPage({ params }: { params: { orde
   }
 
   if (!userId) {
-    const clerkAuth = await auth();
-    if (clerkAuth.userId) {
-      userId = clerkAuth.userId;
+    try {
+      const clerkAuth = await auth();
+      if (clerkAuth.userId) {
+        userId = clerkAuth.userId;
+      }
+    } catch (e) {
+      console.warn('[Order Confirmation Page] Failed to retrieve Clerk auth session:', e);
     }
   }
 

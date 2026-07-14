@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import { verifyPaymentSchema } from '@/lib/validations';
 import { auth } from '@clerk/nextjs/server';
 import { razorpay } from '@/lib/razorpay';
+import { verifyToken } from '@/lib/jwt';
 
 import { sendRefundEmail, sendOrderSuccessEmail, sendDepositConfirmationEmail } from '@/lib/email';
 
@@ -17,9 +18,34 @@ export async function POST(request: Request) {
   let reqBody: any = null;
 
   try {
-    // 0. Verify authentication
-    const { userId } = await auth();
-    if (!userId) {
+    // 0. Verify authentication (support both cookie and Clerk session)
+    let finalUserId: string | null = null;
+    const rawCookie = request.headers.get('cookie') || '';
+    const sessionToken = rawCookie
+      .split(';')
+      .map(c => c.trim())
+      .find(c => c.startsWith('drftn_session='))
+      ?.split('=')?.[1];
+
+    if (sessionToken) {
+      const payload = await verifyToken(sessionToken);
+      if (payload && payload.userId) {
+        finalUserId = payload.userId as string;
+      }
+    }
+
+    if (!finalUserId) {
+      try {
+        const { userId } = await auth();
+        if (userId) {
+          finalUserId = userId;
+        }
+      } catch (e) {
+        console.warn('[Verify Payment API] Failed to retrieve Clerk auth session:', e);
+      }
+    }
+
+    if (!finalUserId) {
       return NextResponse.json(
         { error: 'Unauthorized: You must be signed in to verify payment.' },
         { status: 401 }
