@@ -17,7 +17,14 @@ export async function GET(request: Request) {
     }
 
     const products = await dbService.getProducts();
-    return NextResponse.json({ products });
+    return NextResponse.json(
+      { products },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=3600',
+        },
+      }
+    );
   } catch (error) {
     console.error('Public products GET API Error:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
