@@ -13,7 +13,7 @@ export const options = {
 };
 
 export default function () {
-  const url = 'http://localhost:3000/api/orders/create';
+  const url = 'https://drftndemo-a26ejko4a-nagarjundps-projects.vercel.app/api/orders/create';
   
   const payload = JSON.stringify({
     items: [
@@ -38,6 +38,7 @@ export default function () {
     headers: {
       'Content-Type': 'application/json',
       'x-load-test-user-id': `test-user-${__VU}`, // bypass auth and uniquely identify VU
+      'x-vercel-protection-bypass': 'NFaqP3ePKOp26UIeDoScq5MHYKrMQKqH', // bypass deployment protection
     },
   };
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { eq, and, inArray, sql } from 'drizzle-orm';
+import { waitUntil } from '@vercel/functions';
 
 import { createOrderSchema } from '@/lib/validations';
 import { razorpay } from '@/lib/razorpay';
@@ -17,7 +18,9 @@ export async function POST(request: Request) {
   // checkouts through the cleanup lock — catastrophic at drop-day concurrency.
   // Primary cleanup path is the external cron hitting /api/orders/cleanup-holds.
   if (Math.random() < 0.02) {
-    cleanupExpiredOrders().catch((err) => console.error('Background hold cleanup failed:', err));
+    waitUntil(
+      cleanupExpiredOrders().catch((err) => console.error('Background hold cleanup failed:', err))
+    );
   }
 
 
@@ -413,6 +416,76 @@ export async function POST(request: Request) {
     // 6. Check Razorpay availability
     const isRazorpayConfigured = !!process.env.RAZORPAY_KEY_SECRET && !!razorpay;
 
+    // Pre-generate order UUID
+    const orderId = crypto.randomUUID();
+
+    // Query sequence outside transaction
+    const seqRes = await db.execute(sql`SELECT nextval('order_number_seq')::int AS seq`);
+    const seqVal = Number((seqRes as any).rows?.[0]?.seq ?? (seqRes as any)[0]?.seq);
+    const orderNumber = `DRFTN-${1000 + seqVal}`;
+
+    // Unique pickup code if pickup order
+    const pickupCode = isPickup 
+      ? Math.floor(100000 + Math.random() * 900000).toString() 
+      : null;
+
+    // Shipping address fallback if pickup order
+    const shippingAddr = isPickup 
+      ? {
+          line1: "DRFTN Store, 1st Floor, Kogilu Main Rd",
+          line2: "above Sri Venkateshwar Vaibhava Veg Hotel, K B Sandra, Yelahanka",
+          city: "Bengaluru",
+          state: "Karnataka",
+          pincode: "560064"
+        }
+      : customerInfo.address;
+
+    // With ₹200 deposit, COD orders are no longer confirmed immediately on creation; they wait for the deposit
+    const initialOrderStatus = (!isRazorpayConfigured) 
+      ? 'confirmed' 
+      : 'pending_payment';
+
+    const holdExpiresAt = isRazorpayConfigured
+      ? new Date(Date.now() + 10 * 60 * 1000) // 10 minute hold
+      : null;
+
+    let razorpayOrderId: string | null = null;
+    let rzAmount = isCod ? 20000 : finalTotal;
+
+    if (isRazorpayConfigured) {
+      try {
+        const rzOrder = await razorpay!.orders.create({
+          amount: rzAmount, // ₹200 for COD deposit, or finalTotal
+          currency: 'INR',
+          receipt: orderNumber,
+          notes: {
+            order_id: orderId,
+            customer_name: customerInfo.name,
+            customer_email: customerInfo.email,
+            discount_code: validatedCode || 'NONE',
+            payment_type: isCod ? 'cod_deposit' : 'prepaid',
+          },
+        });
+        razorpayOrderId = rzOrder.id;
+      } catch (rzErr) {
+        console.error('Razorpay SDK Order Error:', rzErr);
+        // Clean up Redis claims and idempotency keys on failure
+        try {
+          const { releaseUnitSafe } = await import('@/lib/stock-gate');
+          for (const item of itemsToRelease) {
+            await releaseUnitSafe(item.productId, item.size);
+          }
+          const { redis } = await import('@/lib/redis');
+          for (const key of idempotencyKeysToClean) {
+            await redis.del(key);
+          }
+        } catch (cleanupErr) {
+          console.error('Failed to cleanup Redis keys on Razorpay error:', cleanupErr);
+        }
+        return NextResponse.json({ error: 'Failed to initialize Razorpay transaction' }, { status: 500 });
+      }
+    }
+
     // 7. Save Order inside database transaction to guarantee auto-increment safety and stock isolation
     const createdOrder = await db.transaction(async (tx: any) => {
       // Fail fast under lock contention: if we can't acquire the stock row lock
@@ -422,38 +495,8 @@ export async function POST(request: Request) {
       await tx.execute(sql`SET LOCAL lock_timeout = '5000ms'`);
       await tx.execute(sql`SET LOCAL statement_timeout = '8000ms'`);
 
-      // Order number: use Postgres sequence (nextval) — inherently concurrency-safe,
-      // no lock needed, no collision possible even under simultaneous drop traffic.
-      const seqRes = await tx.execute(sql`SELECT nextval('order_number_seq')::int AS seq`);
-      const seqVal = Number((seqRes as any).rows?.[0]?.seq ?? (seqRes as any)[0]?.seq);
-      const orderNumber = `DRFTN-${1000 + seqVal}`;
-
-
-      // Unique pickup code if pickup order
-      const pickupCode = isPickup 
-        ? Math.floor(100000 + Math.random() * 900000).toString() 
-        : null;
-
-      // Shipping address fallback if pickup order
-      const shippingAddr = isPickup 
-        ? {
-            line1: "DRFTN Store, 1st Floor, Kogilu Main Rd",
-            line2: "above Sri Venkateshwar Vaibhava Veg Hotel, K B Sandra, Yelahanka",
-            city: "Bengaluru",
-            state: "Karnataka",
-            pincode: "560064"
-          }
-        : customerInfo.address;
-
-      // With ₹200 deposit, COD orders are no longer confirmed immediately on creation; they wait for the deposit
-      const initialOrderStatus = (!isRazorpayConfigured) 
-        ? 'confirmed' 
-        : 'pending_payment';
-
       // 1. Sort items by product ID before locking — consistent lock-acquisition order
       // prevents deadlocks when concurrent orders share items in different sequences.
-      // e.g. Order A: [Jacket, Tee], Order B: [Tee, Jacket] → without sorting,
-      // A locks Jacket and waits for Tee while B locks Tee and waits for Jacket.
       const sortedItems = [...orderItemsToSave].sort((a, b) => a.id.localeCompare(b.id));
 
       for (const item of sortedItems) {
@@ -481,8 +524,6 @@ export async function POST(request: Request) {
       }
 
       // 2. Atomically re-check and increment discount usage with FOR UPDATE row lock.
-      // The pre-flight check above catches obvious overuse but is NOT atomic —
-      // two concurrent requests can both pass it. This is the definitive check.
       if (validatedCode) {
         const [lockedCode] = await tx
           .select({ used_count: schema.discountCodes.used_count, usage_limit: schema.discountCodes.usage_limit })
@@ -500,15 +541,11 @@ export async function POST(request: Request) {
           .where(eq(schema.discountCodes.code, validatedCode));
       }
 
-
-      const holdExpiresAt = isRazorpayConfigured
-        ? new Date(Date.now() + 10 * 60 * 1000) // 10 minute hold
-        : null;
-
-      // Insert pending order
+      // Insert pending order directly with pre-generated orderId and razorpayOrderId!
       const [newOrder] = await tx
         .insert(schema.orders)
         .values({
+          id: orderId,
           user_id: finalUserId,
           order_number: orderNumber,
           customer_name: customerInfo.name,
@@ -535,46 +572,22 @@ export async function POST(request: Request) {
           tracking_number: null,
           shiprocket_order_id: null,
           holdExpiresAt: holdExpiresAt,
+          razorpay_order_id: razorpayOrderId,
         })
         .returning();
 
       return newOrder;
     });
 
-    // 8. payment flows
+    // 8. Respond immediately to the client
     if (isRazorpayConfigured) {
-      try {
-        const rzAmount = isCod ? 20000 : finalTotal;
-        const rzOrder = await razorpay!.orders.create({
-          amount: rzAmount, // ₹200 for COD deposit, or finalTotal
-          currency: 'INR',
-          receipt: createdOrder.order_number,
-          notes: {
-            order_id: createdOrder.id,
-            customer_name: customerInfo.name,
-            customer_email: customerInfo.email,
-            discount_code: validatedCode || 'NONE',
-            payment_type: isCod ? 'cod_deposit' : 'prepaid',
-          },
-        });
-
-        // Update order in database to store razorpay_order_id
-        await db
-          .update(schema.orders)
-          .set({ razorpay_order_id: rzOrder.id })
-          .where(eq(schema.orders.id, createdOrder.id));
-
-        return NextResponse.json({
-          razorpayOrderId: rzOrder.id,
-          amount: rzAmount,
-          currency: 'INR',
-          orderId: createdOrder.id,
-          orderNumber: createdOrder.order_number,
-        });
-      } catch (rzErr) {
-        console.error('Razorpay SDK Order Error:', rzErr);
-        return NextResponse.json({ error: 'Failed to initialize Razorpay transaction' }, { status: 500 });
-      }
+      return NextResponse.json({
+        razorpayOrderId: razorpayOrderId,
+        amount: rzAmount,
+        currency: 'INR',
+        orderId: createdOrder.id,
+        orderNumber: createdOrder.order_number,
+      });
     }
 
     // 9. Razorpay NOT configured -> Fallback confirmation
