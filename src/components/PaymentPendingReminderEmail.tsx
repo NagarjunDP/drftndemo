@@ -52,7 +52,7 @@ export function PaymentPendingReminderEmail({
                   </p>
                   
                   <p style={{ margin: '0 0 28px', fontSize: '14px', lineHeight: 1.7, color: '#ff6666' }}>
-                    ⚠️ <strong>Important:</strong> If payment isn't completed within {minutesRemaining} minutes, your hold will automatically expire, the items will be released back to the stock pool, and they may sell out.
+                    ⚠️ <strong>Important:</strong> If payment isn&apos;t completed within {minutesRemaining} minutes, your hold will automatically expire, the items will be released back to the stock pool, and they may sell out.
                   </p>
 
                   {/* Call to Action button */}
