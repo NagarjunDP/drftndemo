@@ -366,6 +366,16 @@ export const dbService = {
         );
       }
 
+      // Seed Redis stock gate keys
+      try {
+        const { redis } = await import('@/lib/redis');
+        for (const [size, qty] of Object.entries(inserted.stock_quantity || {})) {
+          await redis.set(`stock:${inserted.id}:${size}`, qty);
+        }
+      } catch (redisErr) {
+        console.error('Failed to seed Redis stock gate on createProduct:', redisErr);
+      }
+
       return {
         id: inserted.id,
         name: inserted.name,
@@ -418,6 +428,19 @@ export const dbService = {
         .returning();
 
       if (!updated) throw new Error('Product not found');
+
+      // Update Redis stock gate keys
+      if (updates.stock_quantity) {
+        try {
+          const { redis } = await import('@/lib/redis');
+          for (const [size, qty] of Object.entries(updated.stock_quantity as Record<string, number> || {})) {
+            await redis.set(`stock:${updated.id}:${size}`, qty);
+          }
+        } catch (redisErr) {
+          console.error('Failed to update Redis stock gate on updateProduct:', redisErr);
+        }
+      }
+
 
       // Check if stock went from 0 to >0
       if (oldProduct && updates.stock_quantity) {

@@ -80,16 +80,16 @@ export default clerkMiddleware(async (auth, request) => {
     logApiRequest(ip, method, pathname);
   }
 
-  // 3. Rate Limiting for API routes
-  if (pathname.startsWith('/api/')) {
+  // 3. Rate Limiting for API routes (exclude /api/orders/create as it uses its own Upstash Redis rate limiter)
+  if (pathname.startsWith('/api/') && !pathname.startsWith('/api/orders/create')) {
     let limit = 60; // default 60 requests per minute
     let windowMs = 60000; // 1 minute
-
+    
     if (pathname.startsWith('/api/orders/track')) {
       limit = 10;
     } else if (pathname.startsWith('/api/discount/validate')) {
       limit = 5;
-    } else if (pathname.startsWith('/api/orders/create') || pathname.startsWith('/api/orders/verify-payment')) {
+    } else if (pathname.startsWith('/api/orders/verify-payment')) {
       limit = 10;
     } else if (pathname.startsWith('/api/admin/push/announce-')) {
       limit = 5;

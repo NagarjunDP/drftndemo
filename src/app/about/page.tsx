@@ -11,7 +11,7 @@ export default function AboutPage() {
   return (
     <main className="min-h-screen bg-black text-white pt-28 pb-20 px-4 md:px-8 select-none">
       <div className="max-w-6xl mx-auto space-y-16 md:space-y-24">
-        
+
         {/* Title Section */}
         <div className="text-center md:text-left border-b border-zinc-900 pb-8 flex flex-col md:flex-row md:items-baseline md:justify-between gap-4">
           <div>
@@ -23,7 +23,7 @@ export default function AboutPage() {
             </p>
           </div>
           <div className="text-zinc-650 text-xs font-mono uppercase tracking-wider">
-            Established 2024
+            Established 2025
           </div>
         </div>
 
@@ -34,7 +34,7 @@ export default function AboutPage() {
             <span className="text-[10px] uppercase font-bold tracking-[0.25em] text-zinc-500 font-mono block">
               Founder&apos;s Note
             </span>
-            
+
             <h2 className="text-2xl md:text-3.5xl font-black uppercase tracking-wide leading-tight text-white">
               Hi, I’m Bharath, <br />
               <span className="text-zinc-400">the founder of DRFTN Clothing.</span>

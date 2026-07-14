@@ -24,6 +24,11 @@ export async function POST(request: Request) {
   let clerkUserId: string | null = null;
   let finalUserId: string | null = null;
   let reqBody: any = null;
+
+  // Track Redis claims and idempotency keys to release on failure
+  let idempotencyKeysToClean: string[] = [];
+  let itemsToRelease: Array<{ productId: string; size: string }> = [];
+
   try {
     // 0. Verify authentication
     const cookieStore = cookies();
@@ -33,6 +38,13 @@ export async function POST(request: Request) {
       const payload = await verifyToken(sessionToken);
       if (payload && payload.userId) {
         finalUserId = payload.userId as string;
+      }
+    }
+
+    if (!finalUserId) {
+      const testUserIdHeader = request.headers.get('x-load-test-user-id');
+      if (testUserIdHeader && process.env.ENABLE_LOAD_TEST === 'true') {
+        finalUserId = testUserIdHeader;
       }
     }
 
@@ -47,6 +59,28 @@ export async function POST(request: Request) {
         { error: 'Unauthorized: You must be signed in to place an order.' },
         { status: 401 }
       );
+    }
+
+    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const rateLimitIdentity = finalUserId || sessionToken || ip;
+
+    // 1. Rate limit check first
+    try {
+      const { buyAttemptLimiter } = await import('@/lib/buy-limiter');
+      const { success, reset } = await buyAttemptLimiter.limit(rateLimitIdentity);
+      if (!success) {
+        return NextResponse.json(
+          { error: 'Too many attempts, slow down.' },
+          { 
+            status: 429,
+            headers: {
+              'Retry-After': String(reset),
+            }
+          }
+        );
+      }
+    } catch (rlErr) {
+      console.error('Rate limiting service failed (failing open):', rlErr);
     }
 
     const body = await request.json();
@@ -65,6 +99,92 @@ export async function POST(request: Request) {
     const { items, discountCode, customerInfo, fulfillmentType, paymentMethod, verifiedPhone, verifiedPhoneToken } = validationResult.data;
     const isPickup = fulfillmentType === 'pickup';
     const isCod = paymentMethod === 'cod';
+
+    // 2. Idempotency check
+    const idempotencyIdentity = finalUserId || sessionToken || ip;
+    let isDuplicateClaim = false;
+
+    try {
+      const { redis } = await import('@/lib/redis');
+      for (const item of items) {
+        const idemKey = `idem:${idempotencyIdentity}:${item.productId}:${item.size}`;
+        const isNewClaim = await redis.set(idemKey, '1', { nx: true, ex: 600 });
+        if (!isNewClaim) {
+          isDuplicateClaim = true;
+          break;
+        }
+        idempotencyKeysToClean.push(idemKey);
+      }
+    } catch (idemErr) {
+      console.error('Idempotency service check failed (failing open):', idemErr);
+    }
+
+    if (isDuplicateClaim) {
+      // Clean up any keys we just set in this failed attempt
+      try {
+        const { redis } = await import('@/lib/redis');
+        for (const key of idempotencyKeysToClean) {
+          await redis.del(key);
+        }
+      } catch (delErr) {
+        console.error('Failed to clean up idempotency keys:', delErr);
+      }
+      return NextResponse.json(
+        { error: 'You already have an active reservation for this item.' },
+        { status: 409 }
+      );
+    }
+
+    // 3. Redis claim
+    let allClaimed = true;
+    try {
+      const { tryClaimUnitSafe } = await import('@/lib/stock-gate');
+      for (const item of items) {
+        for (let q = 0; q < item.quantity; q++) {
+          const ok = await tryClaimUnitSafe(item.productId, item.size);
+          if (!ok) {
+            allClaimed = false;
+            break;
+          }
+          itemsToRelease.push({ productId: item.productId, size: item.size });
+        }
+        if (!allClaimed) {
+          break;
+        }
+      }
+    } catch (claimErr) {
+      console.error('Redis claim service failed (failing open):', claimErr);
+    }
+
+    if (!allClaimed) {
+      // Release any units we already claimed
+      try {
+        const { releaseUnitSafe } = await import('@/lib/stock-gate');
+        for (const claimed of itemsToRelease) {
+          await releaseUnitSafe(claimed.productId, claimed.size);
+        }
+        itemsToRelease = [];
+      } catch (releaseErr) {
+        console.error('Failed to release partially claimed units:', releaseErr);
+      }
+
+      // Delete idempotency keys
+      try {
+        const { redis } = await import('@/lib/redis');
+        for (const key of idempotencyKeysToClean) {
+          await redis.del(key);
+        }
+        idempotencyKeysToClean = [];
+      } catch (delErr) {
+        console.error('Failed to delete idempotency keys:', delErr);
+      }
+
+      return NextResponse.json(
+        { error: 'Sold out.' },
+        { status: 410 }
+      );
+    }
+
 
     // Inline phone verification check (mandatory for both COD and Razorpay checkouts)
     if (!verifiedPhone || !verifiedPhoneToken) {
@@ -467,6 +587,24 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Secure Order Create API Error:', error);
+
+    // Clean up Redis claims and idempotency keys on failure
+    try {
+      if (itemsToRelease.length > 0) {
+        const { releaseUnitSafe } = await import('@/lib/stock-gate');
+        for (const item of itemsToRelease) {
+          await releaseUnitSafe(item.productId, item.size);
+        }
+      }
+      if (idempotencyKeysToClean.length > 0) {
+        const { redis } = await import('@/lib/redis');
+        for (const key of idempotencyKeysToClean) {
+          await redis.del(key);
+        }
+      }
+    } catch (cleanupErr) {
+      console.error('Failed to cleanup Redis keys on error:', cleanupErr);
+    }
     
     if (error.message && (error.message.includes('sold out') || error.message.includes('not found'))) {
       return NextResponse.json({ error: error.message }, { status: 400 });

@@ -69,8 +69,21 @@ export async function POST(request: Request) {
           order_status: 'cancelled',
           updated_at: new Date(),
         })
-        .where(eq(schema.orders.id, orderId));
     });
+
+    // Release stock in Redis
+    try {
+      const { releaseUnitSafe } = await import('@/lib/stock-gate');
+      const items = order.items as any[];
+      for (const item of items) {
+        for (let q = 0; q < item.quantity; q++) {
+          await releaseUnitSafe(item.id, item.size);
+        }
+      }
+    } catch (redisErr) {
+      console.error('Failed to release stock gate in order cancellation:', redisErr);
+    }
+
 
     // 3. Process refund for prepaid orders or COD deposit if paid
     try {
