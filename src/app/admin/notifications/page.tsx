@@ -133,7 +133,13 @@ export default function AdminNotificationsPage() {
       }
       const registration = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
-      const applicationServerKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      const rawKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!rawKey) {
+        throw new Error('VAPID public key not configured');
+      }
+      const { urlBase64ToUint8Array } = await import('@/lib/vapid');
+      const applicationServerKey = urlBase64ToUint8Array(rawKey);
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey,
@@ -148,6 +154,10 @@ export default function AdminNotificationsPage() {
         }),
       });
       if (!res.ok) throw new Error('Failed to save subscription');
+
+      localStorage.setItem('push_alerts_subscribed', 'true');
+      window.dispatchEvent(new Event('push-subscription-changed'));
+
       setIsSubscribed(true);
       addToast('This browser is now subscribed! Subscriber count will update.', 'success');
       await fetchCount();

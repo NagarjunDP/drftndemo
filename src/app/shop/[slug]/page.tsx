@@ -145,7 +145,13 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
       const registration = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
 
-      const applicationServerKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      const rawKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!rawKey) {
+        throw new Error('VAPID public key not configured');
+      }
+      const { urlBase64ToUint8Array } = await import('@/lib/vapid');
+      const applicationServerKey = urlBase64ToUint8Array(rawKey);
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey,
@@ -162,6 +168,10 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
       });
 
       if (!res.ok) throw new Error('Failed to subscribe');
+
+      localStorage.setItem('push_alerts_subscribed', 'true');
+      window.dispatchEvent(new Event('push-subscription-changed'));
+
       toast.success('You will be notified when this is back in stock!');
     } catch (e) {
       console.error(e);

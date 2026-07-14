@@ -23,6 +23,9 @@ export default function NotificationToast() {
     // Only show if not already subscribed
     if (!('Notification' in window) || Notification.permission !== 'default') return;
 
+    const localSub = localStorage.getItem('push_alerts_subscribed') === 'true';
+    if (localSub) return;
+
     // Check localStorage dismissal
     const dismissedAt = localStorage.getItem('notification_toast_dismissed_at');
     if (dismissedAt) {
@@ -87,7 +90,13 @@ export default function NotificationToast() {
       const registration = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
 
-      const applicationServerKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      const rawKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!rawKey) {
+        throw new Error('VAPID public key not configured');
+      }
+      const { urlBase64ToUint8Array } = await import('@/lib/vapid');
+      const applicationServerKey = urlBase64ToUint8Array(rawKey);
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey,
@@ -108,11 +117,15 @@ export default function NotificationToast() {
 
       if (!res.ok) throw new Error();
 
+      localStorage.setItem('push_alerts_subscribed', 'true');
+      window.dispatchEvent(new Event('push-subscription-changed'));
+
       addToast('Subscribed to drop alerts successfully.', 'success');
       setIsVisible(false);
     } catch (error) {
       console.error('Push subscription failed:', error);
       addToast('Could not enable notifications.', 'error');
+      setIsVisible(false); // Make toast disappear on error too
     } finally {
       setIsSubscribing(false);
     }

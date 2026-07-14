@@ -40,7 +40,13 @@ export async function subscribeToWebPush(addToast: (msg: string, type: 'success'
     if (permission !== 'granted') return;
     const registration = await navigator.serviceWorker.register('/sw.js');
     await navigator.serviceWorker.ready;
-    const applicationServerKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    const rawKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!rawKey) {
+      throw new Error('VAPID public key not configured');
+    }
+    const { urlBase64ToUint8Array } = await import('@/lib/vapid');
+    const applicationServerKey = urlBase64ToUint8Array(rawKey);
+
     const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
     const res = await fetch('/api/push/subscribe', {
       method: 'POST',
@@ -52,6 +58,10 @@ export async function subscribeToWebPush(addToast: (msg: string, type: 'success'
       }),
     });
     if (!res.ok) throw new Error('Subscription save failed');
+
+    localStorage.setItem('push_alerts_subscribed', 'true');
+    window.dispatchEvent(new Event('push-subscription-changed'));
+
     addToast('Successfully subscribed to notifications!', 'success');
   } catch (err) {
     console.error('Auto push subscription failed:', err);

@@ -16,7 +16,8 @@ export default function PushPrompt() {
     }
 
     // Check if user already granted or denied permission
-    if (Notification.permission !== 'default') {
+    const localSub = localStorage.getItem('push_alerts_subscribed') === 'true';
+    if (localSub || Notification.permission !== 'default') {
       return;
     }
 
@@ -58,7 +59,13 @@ export default function PushPrompt() {
       await navigator.serviceWorker.ready;
 
       // Subscribe to push manager
-      const applicationServerKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      const rawKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!rawKey) {
+        throw new Error('VAPID public key not configured');
+      }
+      const { urlBase64ToUint8Array } = await import('@/lib/vapid');
+      const applicationServerKey = urlBase64ToUint8Array(rawKey);
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey,
@@ -82,11 +89,15 @@ export default function PushPrompt() {
 
       if (!res.ok) throw new Error('Failed to save subscription');
 
+      localStorage.setItem('push_alerts_subscribed', 'true');
+      window.dispatchEvent(new Event('push-subscription-changed'));
+
       toast.success('Successfully subscribed to drop alerts.');
       setIsVisible(false);
     } catch (error) {
       console.error('Push subscription failed:', error);
       toast.error('Could not enable notifications. Please try again.');
+      setIsVisible(false); // Make prompt disappear on error too
     } finally {
       setIsSubscribing(false);
     }
