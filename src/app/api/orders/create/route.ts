@@ -543,7 +543,7 @@ export async function POST(request: Request) {
           )
           SELECT 
             ${orderId}::uuid, ${finalUserId}, ${orderNumber}, ${customerInfo.name}, ${customerInfo.email}, ${customerInfo.phone},
-            ${JSON.stringify(shippingAddr)}::jsonb, ${JSON.stringify(orderItemsToSave)}::jsonb, ${calculatedSubtotal}, ${shippingCharge}, ${validatedCode},
+            ${JSON.stringify(shippingAddr)}::jsonb, ${JSON.stringify(orderItemsToSave)}::jsonb, ${calculatedSubtotal}, ${shippingCharge}, ${validatedCode || null},
             ${discountAmount}, ${finalTotal}, 'pending', ${initialOrderStatus}, ${fulfillmentType},
             ${isPickup ? 'awaiting_pickup' : null}, ${pickupCode}, ${isCod ? 'cod_with_deposit' : 'prepaid'}, ${isCod ? 20000 : null}, ${isCod ? finalTotal - 20000 : null},
             ${isCod ? 'pending' : null}, ${verifiedPhone || null}, null, null, null,
@@ -574,7 +574,7 @@ export async function POST(request: Request) {
           )
           SELECT 
             ${orderId}::uuid, ${finalUserId}, ${orderNumber}, ${customerInfo.name}, ${customerInfo.email}, ${customerInfo.phone},
-            ${JSON.stringify(shippingAddr)}::jsonb, ${JSON.stringify(orderItemsToSave)}::jsonb, ${calculatedSubtotal}, ${shippingCharge}, ${validatedCode},
+            ${JSON.stringify(shippingAddr)}::jsonb, ${JSON.stringify(orderItemsToSave)}::jsonb, ${calculatedSubtotal}, ${shippingCharge}, ${validatedCode || null},
             ${discountAmount}, ${finalTotal}, 'pending', ${initialOrderStatus}, ${fulfillmentType},
             ${isPickup ? 'awaiting_pickup' : null}, ${pickupCode}, ${isCod ? 'cod_with_deposit' : 'prepaid'}, ${isCod ? 20000 : null}, ${isCod ? finalTotal - 20000 : null},
             ${isCod ? 'pending' : null}, ${verifiedPhone || null}, null, null, null,

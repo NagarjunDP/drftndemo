@@ -13,7 +13,7 @@ export const options = {
 };
 
 export default function () {
-  const url = 'https://drftndemo-799g4d2rs-nagarjundps-projects.vercel.app/api/orders/create';
+  const url = 'https://drftndemo-35t3ym3ay-nagarjundps-projects.vercel.app/api/orders/create';
   
   const payload = JSON.stringify({
     items: [
