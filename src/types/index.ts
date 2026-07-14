@@ -97,6 +97,7 @@ export interface CartItem {
   image: string;
   size: string;
   quantity: number;
+  stock_quantity?: Record<string, number>; // per-size stock caps for client-side clamping
 }
 
 export interface ContactSubmission {

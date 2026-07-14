@@ -100,6 +100,7 @@ export const orders = pgTable('orders', {
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   holdExpiresAt: timestamp('hold_expires_at', { withTimezone: true }),
+  reminderSent: boolean('reminder_sent').notNull().default(false),
 });
 
 // 4. Discount Codes Table

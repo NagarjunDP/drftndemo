@@ -29,14 +29,23 @@ export const useCartStore = create<CartState>()(
           (i) => i.id === item.id && i.size === item.size
         );
 
+        // Clamp to available stock if known
+        const maxStock = item.stock_quantity?.[item.size] ?? Infinity;
+
         if (existingIdx !== -1) {
           const updatedItems = [...currentItems];
-          updatedItems[existingIdx].quantity += quantity;
+          const newQty = updatedItems[existingIdx].quantity + quantity;
+          updatedItems[existingIdx] = {
+            ...updatedItems[existingIdx],
+            quantity: Math.min(newQty, maxStock),
+            // Update cached stock_quantity in case it changed
+            stock_quantity: item.stock_quantity ?? updatedItems[existingIdx].stock_quantity,
+          };
           set({ items: updatedItems, isOpen: true });
         } else {
           set({
-            items: [...currentItems, { ...item, quantity }],
-            isOpen: true, // Automatically slide drawer open on add
+            items: [...currentItems, { ...item, quantity: Math.min(quantity, maxStock) }],
+            isOpen: true,
           });
         }
       },
@@ -54,9 +63,11 @@ export const useCartStore = create<CartState>()(
         }
 
         set({
-          items: get().items.map((i) =>
-            i.id === id && i.size === size ? { ...i, quantity } : i
-          ),
+          items: get().items.map((i) => {
+            if (i.id !== id || i.size !== size) return i;
+            const maxStock = i.stock_quantity?.[size] ?? Infinity;
+            return { ...i, quantity: Math.min(quantity, maxStock) };
+          }),
         });
       },
 
@@ -75,7 +86,7 @@ export const useCartStore = create<CartState>()(
       },
     }),
     {
-      name: 'drftn-cart-storage', // Key for localStorage persistence
+      name: 'drftn-cart-storage',
     }
   )
 );

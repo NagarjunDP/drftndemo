@@ -306,31 +306,46 @@ export default function CheckoutPage() {
     const breakdown = calculateTotalBreakdown();
 
     try {
-      // 1. Call Create Order API
-      const res = await fetch('/api/orders/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: items.map((i) => ({ productId: i.id, size: i.size, quantity: i.quantity })),
-          discountCode: discountCode?.code || undefined,
-          paymentMethod: paymentMethod,
-          fulfillmentType: fulfillmentType,
-          verifiedPhone: verifiedPhone || undefined,
-          verifiedPhoneToken: verifiedPhoneToken || undefined,
-          customerInfo: {
-            name: formData.name.trim(),
-            email: formData.email.trim(),
-            phone: formData.phone.trim(),
-            address: fulfillmentType === 'delivery' ? {
-              line1: formData.line1.trim(),
-              line2: formData.line2 ? formData.line2.trim() : undefined,
-              city: formData.city.trim(),
-              state: formData.state.trim(),
-              pincode: formData.pincode.trim(),
-            } : null,
-          },
-        }),
-      });
+      // 1. Call Create Order API with a 15-second client-side timeout as a safety net.
+      // This ensures the spinner never hangs indefinitely even if the server fails silently.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15_000);
+
+      let res: Response;
+      try {
+        res = await fetch('/api/orders/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            items: items.map((i) => ({ productId: i.id, size: i.size, quantity: i.quantity })),
+            discountCode: discountCode?.code || undefined,
+            paymentMethod: paymentMethod,
+            fulfillmentType: fulfillmentType,
+            verifiedPhone: verifiedPhone || undefined,
+            verifiedPhoneToken: verifiedPhoneToken || undefined,
+            customerInfo: {
+              name: formData.name.trim(),
+              email: formData.email.trim(),
+              phone: formData.phone.trim(),
+              address: fulfillmentType === 'delivery' ? {
+                line1: formData.line1.trim(),
+                line2: formData.line2 ? formData.line2.trim() : undefined,
+                city: formData.city.trim(),
+                state: formData.state.trim(),
+                pincode: formData.pincode.trim(),
+              } : null,
+            },
+          }),
+        });
+      } catch (fetchErr: any) {
+        if (fetchErr?.name === 'AbortError') {
+          throw new Error('Checkout timed out. Please try again.');
+        }
+        throw fetchErr;
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -407,6 +422,8 @@ export default function CheckoutPage() {
 
         const rzp = new (window as any).Razorpay(options);
         rzp.open();
+        // Do NOT reset isProcessing here — the modal handler / ondismiss will do it
+        return;
       } 
       // Scenario B: COD / Cash on Delivery flow (Prepaid setting active but COD selected)
       else if (paymentMethod === 'cod' && storeConfig.razorpayActive) {
@@ -427,7 +444,6 @@ export default function CheckoutPage() {
         
         const whatsappUrl = `https://wa.me/${storeConfig.whatsappNumber.replace('+', '')}?text=${messageText}`;
         
-        // Open WhatsApp link in new tab
         window.open(whatsappUrl, '_blank');
 
         clearCart();
@@ -438,9 +454,9 @@ export default function CheckoutPage() {
       console.error(error);
       addToast(error.message || 'Failed to place order. Please try again.', 'error');
     } finally {
-      if (paymentMethod !== 'razorpay' || !storeConfig.razorpayActive) {
-        setIsProcessing(false);
-      }
+      // Always reset processing state on any error or non-Razorpay success.
+      // Razorpay flows return early above; all other paths must clear the spinner here.
+      setIsProcessing(false);
     }
   };
 

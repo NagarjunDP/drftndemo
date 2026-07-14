@@ -7,7 +7,7 @@ import { verifyPaymentSchema } from '@/lib/validations';
 import { auth } from '@clerk/nextjs/server';
 import { razorpay } from '@/lib/razorpay';
 
-import { sendRefundEmail, sendOrderSuccessEmail } from '@/lib/email';
+import { sendRefundEmail, sendOrderSuccessEmail, sendDepositConfirmationEmail } from '@/lib/email';
 
 const MAKE_WHATSAPP_WEBHOOK = process.env.MAKE_WEBHOOK_URL || '';
 
@@ -259,19 +259,34 @@ export async function POST(request: Request) {
       }).catch((err) => console.error('Make.com WhatsApp Webhook execution failed:', err));
     }
 
-    // 7. Send Order Success Email (Fire-and-forget)
-    sendOrderSuccessEmail({
-      orderNumber: confirmedOrder.order_number,
-      customerName: confirmedOrder.customer_name,
-      customerEmail: confirmedOrder.customer_email,
-      items: confirmedOrder.items as any[],
-      totalPaise: confirmedOrder.total,
-      shippingChargePaise: confirmedOrder.shipping_charge,
-      discountAmountPaise: confirmedOrder.discount_amount || 0,
-      fulfillmentType: confirmedOrder.fulfillment_type,
-      pickupCode: confirmedOrder.pickup_code,
-      shippingAddress: confirmedOrder.shipping_address,
-    }).catch((err) => console.error('Failed to send order success email:', err));
+    // 7. Send Order Success Email or COD Deposit Confirmation Email (Fire-and-forget)
+    if (confirmedOrder.payment_type === 'cod_with_deposit') {
+      sendDepositConfirmationEmail({
+        orderNumber: confirmedOrder.order_number,
+        customerName: confirmedOrder.customer_name,
+        customerEmail: confirmedOrder.customer_email,
+        items: confirmedOrder.items as any[],
+        totalPaise: confirmedOrder.total,
+        shippingChargePaise: confirmedOrder.shipping_charge,
+        discountAmountPaise: confirmedOrder.discount_amount || 0,
+        fulfillmentType: confirmedOrder.fulfillment_type,
+        pickupCode: confirmedOrder.pickup_code,
+        shippingAddress: confirmedOrder.shipping_address,
+      }).catch((err) => console.error('Failed to send COD deposit confirmation email:', err));
+    } else {
+      sendOrderSuccessEmail({
+        orderNumber: confirmedOrder.order_number,
+        customerName: confirmedOrder.customer_name,
+        customerEmail: confirmedOrder.customer_email,
+        items: confirmedOrder.items as any[],
+        totalPaise: confirmedOrder.total,
+        shippingChargePaise: confirmedOrder.shipping_charge,
+        discountAmountPaise: confirmedOrder.discount_amount || 0,
+        fulfillmentType: confirmedOrder.fulfillment_type,
+        pickupCode: confirmedOrder.pickup_code,
+        shippingAddress: confirmedOrder.shipping_address,
+      }).catch((err) => console.error('Failed to send order success email:', err));
+    }
 
     return NextResponse.json({
       success: true,

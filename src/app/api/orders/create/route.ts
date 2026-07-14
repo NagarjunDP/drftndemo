@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
   // Track Redis claims and idempotency keys to release on failure
   let idempotencyKeysToClean: string[] = [];
-  let itemsToRelease: Array<{ productId: string; size: string }> = [];
+  let itemsToRelease: Array<{ productId: string; size: string; quantity: number }> = [];
 
   try {
     // 0. Verify authentication
@@ -143,33 +143,52 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Redis claim
+    // 2b. Quantity pre-flight: check each item's requested qty against Redis stock before claiming.
+    // This provides an immediate, descriptive error if a single buyer requests more than available.
+    try {
+      const { redis } = await import('@/lib/redis');
+      for (const item of items) {
+        const redisKey = `stock:${item.productId}:${item.size}`;
+        const currentStock = await redis.get(redisKey);
+        const available = currentStock !== null ? Number(currentStock) : null;
+        if (available !== null && available < item.quantity) {
+          // Clean up idempotency keys before rejecting
+          for (const key of idempotencyKeysToClean) { await redis.del(key).catch(() => {}); }
+          idempotencyKeysToClean = [];
+          return NextResponse.json(
+            { error: `Only ${available} unit${available === 1 ? '' : 's'} available for size ${item.size}. Please reduce the quantity in your cart.` },
+            { status: 400 }
+          );
+        }
+      }
+    } catch (preflightErr) {
+      // Non-critical: if Redis is unavailable, fall through — the atomic claim below will reject correctly.
+      console.warn('Redis quantity pre-flight check failed (failing open):', preflightErr);
+    }
+
+    // 3. Redis claim — atomic multi-unit: single DECRBY per item, no partial loops
     let allClaimed = true;
     try {
       const { tryClaimUnitSafe } = await import('@/lib/stock-gate');
       for (const item of items) {
-        for (let q = 0; q < item.quantity; q++) {
-          const ok = await tryClaimUnitSafe(item.productId, item.size);
-          if (!ok) {
-            allClaimed = false;
-            break;
-          }
-          itemsToRelease.push({ productId: item.productId, size: item.size });
-        }
-        if (!allClaimed) {
+        const ok = await tryClaimUnitSafe(item.productId, item.size, item.quantity);
+        if (!ok) {
+          allClaimed = false;
           break;
         }
+        // Track what we claimed so we can roll back on failure
+        itemsToRelease.push({ productId: item.productId, size: item.size, quantity: item.quantity });
       }
     } catch (claimErr) {
       console.error('Redis claim service failed (failing open):', claimErr);
     }
 
     if (!allClaimed) {
-      // Release any units we already claimed
+      // Release any units we already claimed (rollback)
       try {
         const { releaseUnitSafe } = await import('@/lib/stock-gate');
         for (const claimed of itemsToRelease) {
-          await releaseUnitSafe(claimed.productId, claimed.size);
+          await releaseUnitSafe(claimed.productId, claimed.size, (claimed as any).quantity ?? 1);
         }
         itemsToRelease = [];
       } catch (releaseErr) {
@@ -488,7 +507,7 @@ export async function POST(request: Request) {
         try {
           const { releaseUnitSafe } = await import('@/lib/stock-gate');
           for (const item of itemsToRelease) {
-            await releaseUnitSafe(item.productId, item.size);
+            await releaseUnitSafe(item.productId, item.size, item.quantity);
           }
           const { redis } = await import('@/lib/redis');
           for (const key of idempotencyKeysToClean) {
@@ -700,7 +719,7 @@ export async function POST(request: Request) {
       if (itemsToRelease.length > 0) {
         const { releaseUnitSafe } = await import('@/lib/stock-gate');
         for (const item of itemsToRelease) {
-          await releaseUnitSafe(item.productId, item.size);
+          await releaseUnitSafe(item.productId, item.size, item.quantity);
         }
       }
       if (idempotencyKeysToClean.length > 0) {

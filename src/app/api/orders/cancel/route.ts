@@ -71,14 +71,12 @@ export async function POST(request: Request) {
         })
     });
 
-    // Release stock in Redis
+    // Release stock in Redis — single call per item using atomic INCRBY
     try {
       const { releaseUnitSafe } = await import('@/lib/stock-gate');
       const items = order.items as any[];
       for (const item of items) {
-        for (let q = 0; q < item.quantity; q++) {
-          await releaseUnitSafe(item.id, item.size);
-        }
+        await releaseUnitSafe(item.id, item.size, item.quantity ?? 1);
       }
     } catch (redisErr) {
       console.error('Failed to release stock gate in order cancellation:', redisErr);

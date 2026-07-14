@@ -78,15 +78,62 @@ export async function cleanupExpiredOrders() {
           try {
             const { releaseUnitSafe } = await import('@/lib/stock-gate');
             for (const item of order.items) {
-              for (let q = 0; q < item.quantity; q++) {
-                await releaseUnitSafe(item.id, item.size);
-              }
+              await releaseUnitSafe(item.id, item.size, item.quantity ?? 1);
             }
           } catch (redisErr) {
             console.error('Failed to release stock gate in cleanupExpiredOrders:', redisErr);
           }
         }
       }
+    }
+
+    // 3b. Send Payment Pending Reminders for prepaid orders with <= 5 mins remaining (50% of the 10m TTL)
+    let remindersSentCount = 0;
+    try {
+      const activePendingPrepaid = await db
+        .select()
+        .from(schema.orders)
+        .where(
+          and(
+            eq(schema.orders.order_status, 'pending_payment'),
+            eq(schema.orders.payment_type, 'prepaid'),
+            eq(schema.orders.reminderSent, false)
+          )
+        );
+
+      const reminderThresholdMs = 5 * 60 * 1000; // 5 minutes remaining (50% elapsed)
+      const { sendPaymentPendingReminderEmail } = await import('@/lib/email');
+
+      for (const order of activePendingPrepaid) {
+        if (order.holdExpiresAt) {
+          const msRemaining = order.holdExpiresAt.getTime() - now.getTime();
+          
+          if (msRemaining > 0 && msRemaining <= reminderThresholdMs) {
+            // Mark as sent in DB immediately to prevent concurrent duplicate triggers
+            await db
+              .update(schema.orders)
+              .set({ reminderSent: true, updated_at: new Date() })
+              .where(eq(schema.orders.id, order.id));
+
+            remindersSentCount++;
+
+            const minutesRemaining = Math.max(1, Math.ceil(msRemaining / 60000));
+            sendPaymentPendingReminderEmail({
+              orderNumber: order.order_number,
+              customerName: order.customer_name,
+              customerEmail: order.customer_email,
+              items: order.items as any[],
+              totalPaise: order.total,
+              minutesRemaining
+            }).catch((err) => console.error(`Failed to send reminder email for order ${order.order_number}:`, err));
+          }
+        }
+      }
+      if (remindersSentCount > 0) {
+        console.log(`Sent ${remindersSentCount} payment-pending reminders.`);
+      }
+    } catch (reminderErr) {
+      console.error('Failed to process payment reminders:', reminderErr);
     }
 
     // 4. Reconciliation Safety Net (Heals drift between Redis and Postgres)
@@ -109,7 +156,7 @@ export async function cleanupExpiredOrders() {
       console.error('Reconciliation safety net error:', reconErr);
     }
 
-    return { count: expiredOrders.length };
+    return { count: expiredOrders.length, remindersSent: remindersSentCount };
   } catch (error) {
     console.error('Error cleaning up expired orders:', error);
     throw error;

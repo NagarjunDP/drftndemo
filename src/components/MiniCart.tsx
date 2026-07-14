@@ -256,7 +256,8 @@ export default function MiniCart() {
                       </span>
                       <button
                         onClick={() => updateQuantity(item.id, item.size, item.quantity + 1)}
-                        className="w-7 h-7 flex items-center justify-center text-brand-stone hover:text-brand-offwhite transition-colors"
+                        disabled={item.quantity >= (item.stock_quantity?.[item.size] ?? Infinity)}
+                        className="w-7 h-7 flex items-center justify-center text-brand-stone hover:text-brand-offwhite transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                         aria-label={`Increase quantity of ${item.name}`}
                       >
                         <Plus className="w-3 h-3" />

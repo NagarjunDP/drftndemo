@@ -68,6 +68,46 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
     loadProduct();
   }, [slug]);
 
+  // Real-time stock polling: update PDP size badges every 10s, pause when tab is hidden
+  useEffect(() => {
+    if (!product) return;
+    let intervalId: ReturnType<typeof setInterval>;
+
+    const poll = async () => {
+      if (document.hidden) return;
+      try {
+        const res = await fetch(`/api/products/${product.id}/stock`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.stock) {
+          setProduct((prev) => prev ? { ...prev, stock_quantity: data.stock } : prev);
+          // Clamp selected quantity if newly fetched stock is lower
+          if (selectedSize) {
+            const freshStock = data.stock[selectedSize] ?? 0;
+            setQuantity((prev) => Math.max(1, Math.min(prev, freshStock)));
+          }
+        }
+      } catch {
+        // Non-critical — silently ignore polling errors
+      }
+    };
+
+    intervalId = setInterval(poll, 10_000);
+    document.addEventListener('visibilitychange', poll);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', poll);
+    };
+  }, [product?.id, selectedSize]);
+
+  // Clamp quantity stepper when size changes and new size has fewer units in stock
+  useEffect(() => {
+    if (!product || !selectedSize) return;
+    const newSizeStock = product.stock_quantity[selectedSize] ?? 0;
+    setQuantity((prev) => Math.max(1, Math.min(prev, newSizeStock)));
+  }, [selectedSize]);
+
   if (loading) {
     return (
       <div className="py-12 px-6 md:px-12 max-w-7xl mx-auto w-full">
@@ -159,6 +199,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
       compare_price: product.compare_price,
       image: product.images[0] || '',
       size: selectedSize,
+      stock_quantity: product.stock_quantity,
     }, quantity);
 
     // Trigger the flying image animation
@@ -211,6 +252,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
       compare_price: product.compare_price,
       image: product.images[0] || '',
       size: selectedSize,
+      stock_quantity: product.stock_quantity,
     }, quantity);
 
     router.push('/checkout');
