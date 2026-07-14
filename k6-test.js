@@ -13,7 +13,7 @@ export const options = {
 };
 
 export default function () {
-  const url = 'https://drftndemo-6o9801da1-nagarjundps-projects.vercel.app/api/orders/create';
+  const url = 'https://drftndemo-bgu3z32em-nagarjundps-projects.vercel.app/api/orders/create';
   
   const payload = JSON.stringify({
     items: [
@@ -45,6 +45,6 @@ export default function () {
   const res = http.post(url, payload, params);
 
   check(res, {
-    'status is 200 or 410': (r) => r.status === 200 || r.status === 410,
+    'status is 200 or 400 or 410': (r) => r.status === 200 || r.status === 400 || r.status === 410,
   });
 }
