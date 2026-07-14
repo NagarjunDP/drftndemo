@@ -13,6 +13,11 @@ import { verifyToken } from '@/lib/jwt';
 import { cleanupExpiredOrders } from '@/lib/orderCleanup';
 
 export async function POST(request: Request) {
+  const tStart = performance.now();
+  const logPerf = (label: string) => {
+    console.log(`[Perf] ${label}: ${(performance.now() - tStart).toFixed(1)}ms`);
+  };
+
   // Self-healing cleanup: run on ~2% of requests (fire-and-forget).
   // Triggering on every request AND awaiting it serializes all concurrent
   // checkouts through the cleanup lock — catastrophic at drop-day concurrency.
@@ -188,6 +193,7 @@ export async function POST(request: Request) {
       );
     }
 
+    logPerf('Redis Claim Succeeded');
 
     // Inline phone verification check (mandatory for both COD and Razorpay checkouts)
     if (!verifiedPhone || !verifiedPhoneToken) {
@@ -258,6 +264,8 @@ export async function POST(request: Request) {
     if (cleanVerified !== cleanMatched) {
       return NextResponse.json({ error: 'Verified phone number mismatch.' }, { status: 400 });
     }
+
+    logPerf('Phone OTP Verified');
 
     // 2. Fetch products from Neon database to verify active status and actual pricing
     const productIds = items.map((i) => i.productId);
@@ -424,6 +432,8 @@ export async function POST(request: Request) {
     const seqVal = Number((seqRes as any).rows?.[0]?.seq ?? (seqRes as any)[0]?.seq);
     const orderNumber = `DRFTN-${1000 + seqVal}`;
 
+    logPerf('Pre-flight Calculations & Sequence Query Done');
+
     // Unique pickup code if pickup order
     const pickupCode = isPickup 
       ? Math.floor(100000 + Math.random() * 900000).toString() 
@@ -485,6 +495,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Failed to initialize Razorpay transaction' }, { status: 500 });
       }
     }
+
+    logPerf('Razorpay Order Created');
 
     // 7. Save Order inside database transaction to guarantee auto-increment safety and stock isolation
     const createdOrder = await db.transaction(async (tx: any) => {
@@ -578,6 +590,8 @@ export async function POST(request: Request) {
 
       return newOrder;
     });
+
+    logPerf('Postgres Transaction Done');
 
     // 8. Respond immediately to the client
     if (isRazorpayConfigured) {
