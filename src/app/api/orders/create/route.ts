@@ -57,7 +57,9 @@ export async function POST(request: Request) {
     }
 
     if (!finalUserId) {
+      const authStart = performance.now();
       const { userId } = await auth();
+      console.log(`[Perf] Clerk auth() call took: ${(performance.now() - authStart).toFixed(1)}ms`);
       clerkUserId = userId;
       finalUserId = userId;
     }
@@ -143,37 +145,19 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2b. Quantity pre-flight: check each item's requested qty against Redis stock before claiming.
-    // This provides an immediate, descriptive error if a single buyer requests more than available.
-    try {
-      const { redis } = await import('@/lib/redis');
-      for (const item of items) {
-        const redisKey = `stock:${item.productId}:${item.size}`;
-        const currentStock = await redis.get(redisKey);
-        const available = currentStock !== null ? Number(currentStock) : null;
-        if (available !== null && available < item.quantity) {
-          // Clean up idempotency keys before rejecting
-          for (const key of idempotencyKeysToClean) { await redis.del(key).catch(() => {}); }
-          idempotencyKeysToClean = [];
-          return NextResponse.json(
-            { error: `Only ${available} unit${available === 1 ? '' : 's'} available for size ${item.size}. Please reduce the quantity in your cart.` },
-            { status: 400 }
-          );
-        }
-      }
-    } catch (preflightErr) {
-      // Non-critical: if Redis is unavailable, fall through — the atomic claim below will reject correctly.
-      console.warn('Redis quantity pre-flight check failed (failing open):', preflightErr);
-    }
-
     // 3. Redis claim — atomic multi-unit: single DECRBY per item, no partial loops
     let allClaimed = true;
+    let failedItemSize: string | null = null;
+    let failedItemAvailable: number = 0;
+
     try {
       const { tryClaimUnitSafe } = await import('@/lib/stock-gate');
       for (const item of items) {
-        const ok = await tryClaimUnitSafe(item.productId, item.size, item.quantity);
-        if (!ok) {
+        const result = await tryClaimUnitSafe(item.productId, item.size, item.quantity);
+        if (!result.success) {
           allClaimed = false;
+          failedItemSize = item.size;
+          failedItemAvailable = result.stock;
           break;
         }
         // Track what we claimed so we can roll back on failure
@@ -188,7 +172,7 @@ export async function POST(request: Request) {
       try {
         const { releaseUnitSafe } = await import('@/lib/stock-gate');
         for (const claimed of itemsToRelease) {
-          await releaseUnitSafe(claimed.productId, claimed.size, (claimed as any).quantity ?? 1);
+          await releaseUnitSafe(claimed.productId, claimed.size, claimed.quantity);
         }
         itemsToRelease = [];
       } catch (releaseErr) {
@@ -207,8 +191,8 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json(
-        { error: 'Sold out.' },
-        { status: 410 }
+        { error: `Only ${failedItemAvailable} unit${failedItemAvailable === 1 ? '' : 's'} available for size ${failedItemSize}. Please reduce the quantity in your cart.` },
+        { status: 400 }
       );
     }
 
