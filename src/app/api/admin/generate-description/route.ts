@@ -30,16 +30,44 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { imageBase64, mimeType = 'image/jpeg' } = body;
+    const { imageBase64, imageUrl, mimeType: bodyMimeType } = body;
 
-    if (!imageBase64 || typeof imageBase64 !== 'string') {
-      return NextResponse.json({ error: 'imageBase64 is required and must be a string.' }, { status: 400 });
-    }
-
-    // Validate mimeType to prevent injection
     const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedMimeTypes.includes(mimeType)) {
-      return NextResponse.json({ error: 'Unsupported image mimeType.' }, { status: 400 });
+    let finalBase64: string;
+    let finalMimeType: string = bodyMimeType || 'image/jpeg';
+
+    if (imageUrl && typeof imageUrl === 'string') {
+      // Path A: server-side URL fetch — no CORS issues, works with any Cloudinary URL
+      try {
+        const imgRes = await fetch(imageUrl, { headers: { Accept: 'image/*' } });
+        if (!imgRes.ok) {
+          return NextResponse.json(
+            { error: `Failed to fetch image from URL (HTTP ${imgRes.status}).` },
+            { status: 400 }
+          );
+        }
+        const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+        finalMimeType = allowedMimeTypes.find(t => contentType.includes(t)) ?? 'image/jpeg';
+        const arrayBuffer = await imgRes.arrayBuffer();
+        finalBase64 = Buffer.from(arrayBuffer).toString('base64');
+      } catch (fetchErr: any) {
+        console.error('[generate-description] Failed to fetch imageUrl:', fetchErr?.message);
+        return NextResponse.json(
+          { error: 'Could not fetch image from the provided URL.' },
+          { status: 400 }
+        );
+      }
+    } else if (imageBase64 && typeof imageBase64 === 'string') {
+      // Path B: base64 inline data (existing file-upload flow — unchanged)
+      finalBase64 = imageBase64;
+      if (!allowedMimeTypes.includes(finalMimeType)) {
+        return NextResponse.json({ error: 'Unsupported image mimeType.' }, { status: 400 });
+      }
+    } else {
+      return NextResponse.json(
+        { error: 'Either imageUrl or imageBase64 is required.' },
+        { status: 400 }
+      );
     }
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
@@ -54,8 +82,8 @@ export async function POST(request: Request) {
               { text: DRFTN_SYSTEM_PROMPT },
               {
                 inlineData: {
-                  mimeType,
-                  data: imageBase64,
+                  mimeType: finalMimeType,
+                  data: finalBase64,
                 },
               },
             ],

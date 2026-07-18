@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '@/lib/cartStore';
+import { getOptimizedImageUrl } from '@/lib/cloudinary';
 import { ChevronLeft, Lock, CheckCircle, Package, ArrowRight, ShieldCheck, MapPin } from 'lucide-react';
 import { useToast } from '@/components/ToastContainer';
 import { useAuthSession } from '@/context/AuthContext';
@@ -1086,7 +1087,7 @@ export default function CheckoutPage() {
                 <div key={`${item.id}-${item.size}`} className="flex gap-4">
                   <div className="w-16 h-20 bg-zinc-900 flex-shrink-0 relative border border-zinc-800">
                     <img
-                      src={item.image}
+                      src={getOptimizedImageUrl(item.image, 200)}
                       alt={item.name}
                       className="absolute inset-0 w-full h-full object-cover"
                     />

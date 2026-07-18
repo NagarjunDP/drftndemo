@@ -112,16 +112,10 @@ export default function AnnouncementTicker() {
       </div>
 
       {/* Progress bar — fills left-to-right, resets on each rotation */}
-      <div className="absolute bottom-0 inset-x-0 h-[2px] bg-brand-graphite" aria-hidden="true">
-        <motion.div
+      <div className="absolute bottom-0 inset-x-0 h-[2px] bg-brand-graphite overflow-hidden" aria-hidden="true">
+        <div
           key={barKey}
-          className="h-full bg-brand-offwhite/20"
-          initial={{ scaleX: 0, originX: '0%' }}
-          animate={{ scaleX: 1 }}
-          transition={{
-            duration: DURATION / 1000 - 0.1,
-            ease: 'linear',
-          }}
+          className="h-full bg-brand-offwhite/20 origin-left animate-ticker-progress"
         />
       </div>
 

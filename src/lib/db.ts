@@ -202,10 +202,19 @@ export const dbService = {
         .orderBy(asc(schema.productImages.sort_order));
 
       const imagesByProductId = allImages.reduce((acc: Record<string, string[]>, img: any) => {
-        if (!acc[img.product_id]) acc[img.product_id] = [];
-        acc[img.product_id].push(img.image_url);
+        if (img.sort_order !== 99) {
+          if (!acc[img.product_id]) acc[img.product_id] = [];
+          acc[img.product_id].push(img.image_url);
+        }
         return acc;
       }, {} as Record<string, string[]>);
+
+      const hiddenImageByProductId = allImages.reduce((acc: Record<string, string>, img: any) => {
+        if (img.sort_order === 99) {
+          acc[img.product_id] = img.image_url;
+        }
+        return acc;
+      }, {} as Record<string, string>);
       
       return results.map((r: any) => ({
         id: r.id,
@@ -218,6 +227,7 @@ export const dbService = {
         subcategory: r.subcategory || undefined,
         gender: r.gender,
         images: imagesByProductId[r.id] || [],
+        hidden_detail_image: hiddenImageByProductId[r.id] || undefined,
         sizes: r.sizes,
         stock_quantity: r.stock_quantity,
         is_featured: r.is_featured,
@@ -253,10 +263,19 @@ export const dbService = {
         .orderBy(asc(schema.productImages.sort_order));
 
       const imagesByProductId = allImages.reduce((acc: Record<string, string[]>, img: any) => {
-        if (!acc[img.product_id]) acc[img.product_id] = [];
-        acc[img.product_id].push(img.image_url);
+        if (img.sort_order !== 99) {
+          if (!acc[img.product_id]) acc[img.product_id] = [];
+          acc[img.product_id].push(img.image_url);
+        }
         return acc;
       }, {} as Record<string, string[]>);
+
+      const hiddenImageByProductId = allImages.reduce((acc: Record<string, string>, img: any) => {
+        if (img.sort_order === 99) {
+          acc[img.product_id] = img.image_url;
+        }
+        return acc;
+      }, {} as Record<string, string>);
       
       return results.map((r: any) => ({
         id: r.id,
@@ -269,6 +288,7 @@ export const dbService = {
         subcategory: r.subcategory || undefined,
         gender: r.gender,
         images: imagesByProductId[r.id] || [],
+        hidden_detail_image: hiddenImageByProductId[r.id] || undefined,
         sizes: r.sizes,
         stock_quantity: r.stock_quantity,
         is_featured: r.is_featured,
@@ -306,6 +326,17 @@ export const dbService = {
         .where(eq(schema.productImages.product_id, prod.id))
         .orderBy(asc(schema.productImages.sort_order));
 
+      const images: string[] = [];
+      let hiddenDetailImage: string | undefined = undefined;
+
+      for (const img of productImgs) {
+        if (img.sort_order === 99) {
+          hiddenDetailImage = img.image_url;
+        } else {
+          images.push(img.image_url);
+        }
+      }
+
       return {
         id: prod.id,
         name: prod.name,
@@ -316,7 +347,8 @@ export const dbService = {
         category: prod.category,
         subcategory: prod.subcategory || undefined,
         gender: prod.gender,
-        images: productImgs.map((img: any) => img.image_url),
+        images,
+        hidden_detail_image: hiddenDetailImage,
         sizes: prod.sizes,
         stock_quantity: prod.stock_quantity,
         is_featured: prod.is_featured,

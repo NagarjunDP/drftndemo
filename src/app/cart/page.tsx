@@ -6,6 +6,7 @@ import NextImage from 'next/image';
 import { Plus, Minus, Trash2, Tag, ShoppingBag, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useCartStore } from '@/lib/cartStore';
 import { dbService } from '@/lib/db';
+import { getOptimizedImageUrl } from '@/lib/cloudinary';
 import { toast } from '@/lib/toast';
 import { StoreSettings } from '@/types';
 
@@ -106,7 +107,7 @@ export default function CartPage() {
           <ShoppingBag className="w-8 h-8 text-brand-muted stroke-[1]" aria-hidden="true" />
         </div>
         <div className="space-y-3">
-          <h1 className="text-2xl font-display uppercase tracking-widest text-brand-offwhite">YOUR BAG IS EMPTY</h1>
+          <h1 className="text-2xl font-display uppercase tracking-widest text-brand-offwhite">NO DROPS IN BAG.</h1>
           <p className="text-brand-stone text-xs tracking-wider uppercase max-w-xs mx-auto font-body">
             You haven&apos;t added any items to your shopping bag yet. Explore the drop to get driftin.
           </p>
@@ -146,7 +147,7 @@ export default function CartPage() {
                 {/* Image */}
                 <div className="relative w-24 h-32 bg-brand-graphite overflow-hidden flex-shrink-0">
                   <NextImage
-                    src={item.image || 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=300'}
+                    src={getOptimizedImageUrl(item.image, 200) || 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=300'}
                     alt={`${item.name} — size ${item.size}`}
                     fill
                     sizes="96px"

@@ -190,7 +190,7 @@ h6 {
   letter-spacing: 0.15em;
   text-transform: uppercase;
   padding: 1rem 2.25rem;
-  border: 1px solid rgba(245, 243, 239, 0.2);
+  border: 1px solid rgba(245, 243, 239, 0.45);
   transition: all var(--transition-streetwear);
 }
 
@@ -236,7 +236,8 @@ h6 {
   align-items: center;
   justify-content: center;
   background: rgba(11, 13, 16, 0.75);
-  color: var(--color-red); /* Electric Blue */
+  color: var(--color-red);
+  /* Electric Blue */
   border: 1.5px solid var(--color-red);
   border-radius: 8px;
   padding: 12px 28px;
@@ -803,12 +804,15 @@ input[type=number] {
     transform: translateX(-100%) skewX(-20deg);
     opacity: 0;
   }
+
   15% {
     opacity: 0.2;
   }
+
   85% {
     opacity: 0.2;
   }
+
   100% {
     transform: translateX(200%) skewX(-20deg);
     opacity: 0;
@@ -819,6 +823,7 @@ input[type=number] {
   0% {
     filter: blur(12px) scale(1.05);
   }
+
   100% {
     filter: blur(0px) scale(1);
   }
@@ -828,6 +833,7 @@ input[type=number] {
   0% {
     transform: translateY(102%);
   }
+
   100% {
     transform: translateY(0);
   }
@@ -838,6 +844,7 @@ input[type=number] {
     opacity: 0;
     transform: translateY(5px);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0);
@@ -871,9 +878,15 @@ input[type=number] {
 }
 
 @keyframes infinite-loading {
-  0% { left: -40%; }
-  100% { left: 100%; }
+  0% {
+    left: -40%;
+  }
+
+  100% {
+    left: 100%;
+  }
 }
+
 .animate-infinite-loading {
   position: absolute;
   height: 100%;
@@ -885,9 +898,11 @@ input[type=number] {
   0% {
     box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.15);
   }
+
   50% {
     box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.35);
   }
+
   100% {
     box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.15);
   }
@@ -897,18 +912,108 @@ input[type=number] {
   0% {
     background-position: 0% 0%;
   }
+
   100% {
     background-position: 0% 200%;
   }
 }
 
 .focus-scanline:focus {
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.7) 0%,
-    rgba(255, 255, 255, 0.04) 50%,
-    rgba(0, 0, 0, 0.7) 100%
-  ) !important;
+  background: linear-gradient(to bottom,
+      rgba(0, 0, 0, 0.7) 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      rgba(0, 0, 0, 0.7) 100%) !important;
   background-size: 100% 200% !important;
   animation: scanlineAnim 4s linear infinite !important;
+}
+
+@keyframes ticker-progress {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+.animate-ticker-progress {
+  animation: ticker-progress 3.4s linear forwards;
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.12; }
+  50% { opacity: 0.28; }
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 4.5s ease-in-out infinite;
+}
+
+@keyframes heroGlowPulse {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.35; }
+}
+
+.animate-hero-glow-pulse {
+  animation: heroGlowPulse 4s ease-in-out infinite;
+}
+
+@keyframes heroGlowPulseDesktop {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.3; }
+}
+
+.animate-hero-glow-pulse-desktop {
+  animation: heroGlowPulseDesktop 4.5s ease-in-out infinite;
+}
+
+@keyframes ambientDrift {
+  0% { transform: translate(0px, 0px); }
+  33% { transform: translate(35px, -40px); }
+  66% { transform: translate(-20px, 25px); }
+  100% { transform: translate(0px, 0px); }
+}
+
+.animate-ambient-drift {
+  animation: ambientDrift 12s ease-in-out infinite;
+}
+
+@keyframes neonFlicker {
+  0%, 1.2%, 2.4%, 3.6%, 4.8%, 100% {
+    filter: brightness(0.8) contrast(1.1) grayscale(1);
+  }
+  0.6%, 1.8%, 3.0%, 4.2% {
+    filter: brightness(1.25) contrast(1.15) grayscale(1);
+  }
+}
+
+.animate-neon-flicker {
+  animation: neonFlicker 8s infinite linear;
+}
+
+@keyframes smokeParallax {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(8px, 12px) rotate(1deg);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(3px, 4px) rotate(0.5deg);
+    opacity: 0.45;
+  }
+}
+
+.animate-smoke-parallax {
+  animation: smokeParallax 8s ease-in-out infinite alternate;
+}
+
+/* Custom Cursor Hover Gating */
+@media (hover: hover) and (pointer: fine) {
+  .product-image-hoverable,
+  .product-image-hoverable * {
+    cursor: none !important;
+  }
 }

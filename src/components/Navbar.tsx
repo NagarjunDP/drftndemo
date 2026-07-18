@@ -8,9 +8,8 @@ import { ShoppingBag, X, Menu, Search } from 'lucide-react';
 import { useCartStore } from '../lib/cartStore';
 import { useAnimationStore } from '../lib/animationStore';
 import { useAuthSession } from '@/context/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
 import AnnouncementTicker from './AnnouncementTicker';
-import { gsap } from 'gsap';
 
 const NAV_LINKS = [
   { href: '/shop', label: 'Collection' },
@@ -33,7 +32,8 @@ export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [mounted, setMounted] = useState(false);
-  const progressBarRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
   const isHomepage = pathname === '/';
   const isAdminPage = pathname?.startsWith('/admin');
@@ -41,38 +41,15 @@ export default function Navbar() {
 
   useEffect(() => {
     setMounted(true);
-    let docHeight = 0;
-
-    const handleResize = () => {
-      docHeight = document.documentElement.scrollHeight - window.innerHeight;
-    };
-
     const handleScroll = () => {
-      const scrolledY = window.scrollY;
-      setIsScrolled(scrolledY > 50);
-
-      // Compute scroll percentage using cached docHeight
-      if (docHeight > 0 && progressBarRef.current) {
-        const pct = (scrolledY / docHeight) * 100;
-        gsap.to(progressBarRef.current, {
-          width: `${pct}%`,
-          duration: 0.15,
-          ease: 'power1.out',
-          overwrite: 'auto'
-        });
-      }
+      setIsScrolled(window.scrollY > 50);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    window.addEventListener('resize', handleResize, { passive: true });
-    
-    // Set initial values
-    handleResize();
     handleScroll();
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleResize);
     };
   }, []);
 
@@ -107,8 +84,8 @@ export default function Navbar() {
       {/* ── Main Navigation Top Rail ── */}
       <header
         className={`w-full sticky top-0 z-[2000] transition-all duration-300 hidden md:block ${isScrolled || !isHomepage
-            ? 'bg-[#0A0A0A] border-b border-brand-graphite/40 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
-            : 'bg-transparent border-b border-transparent'
+          ? 'bg-[#0A0A0A] border-b border-brand-graphite/40 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
+          : 'bg-transparent border-b border-transparent'
           }`}
         role="banner"
       >
@@ -148,8 +125,8 @@ export default function Navbar() {
                 href={link.href}
                 role="listitem"
                 className={`text-[10px] font-bold tracking-[0.2em] uppercase transition-colors duration-200 hover:text-white ${pathname === link.href || pathname?.startsWith(link.href + '?')
-                    ? 'text-brand-red'
-                    : 'text-brand-silver'
+                  ? 'text-brand-red'
+                  : 'text-brand-silver'
                   }`}
                 aria-current={pathname === link.href ? 'page' : undefined}
               >
@@ -240,10 +217,9 @@ export default function Navbar() {
           </div>
 
           {/* Scroll Progress Bar / Speedometer Underline indicator */}
-          <div
-            ref={progressBarRef}
-            className="absolute bottom-0 left-0 h-[2px] bg-white"
-            style={{ width: '0%' }}
+          <motion.div
+            className="absolute bottom-0 left-0 h-[2px] bg-white origin-left w-full"
+            style={{ scaleX }}
             aria-hidden="true"
           />
         </nav>
@@ -252,11 +228,10 @@ export default function Navbar() {
       {/* ── Mobile Navigation Top Rail — hidden when cart is open to prevent collision ── */}
       {!isCartOpen && (
         <header
-          className={`w-full sticky top-0 z-[2000] transition-all duration-300 md:hidden ${
-            isScrolled
-              ? 'bg-black/40 backdrop-blur-md border-b border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
-              : 'bg-transparent border-b border-transparent'
-          }`}
+          className={`w-full sticky top-0 z-[2000] transition-all duration-300 md:hidden ${isScrolled
+            ? 'bg-black/40 backdrop-blur-md border-b border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
+            : 'bg-transparent border-b border-transparent'
+            }`}
         >
           <div className="h-16 flex items-center justify-between px-6 relative">
             {/* Left: Wordmark Logo */}

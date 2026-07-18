@@ -11,6 +11,7 @@ import BrandLoader from '@/components/BrandLoader';
 import PushPrompt from '@/components/PushPrompt';
 import LoginIncentivePopup from '@/components/LoginIncentivePopup';
 import NotificationToast from '@/components/NotificationToast';
+import CustomCursor from '@/components/CustomCursor';
 import { ClerkProvider } from '@clerk/nextjs';
 import { AuthSessionProvider } from '@/context/AuthContext';
 
@@ -34,12 +35,26 @@ export const metadata: Metadata = {
   authors: [{ name: 'DRFTN CLOTHING' }],
   metadataBase: new URL('https://www.drftnclothing.in'),
   openGraph: {
-    title: 'DRFTN CLOTHING | Premium Streetwear Brand',
+    title: 'DRFTN CLOTHING — Built Different',
     description: 'Born in Yelahanka, Bengaluru. Drift in style with premium imported streetwear.',
     url: 'https://www.drftnclothing.in',
     siteName: 'DRFTN CLOTHING',
     locale: 'en_IN',
     type: 'website',
+    images: [
+      {
+        url: '/og-default.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'DRFTN CLOTHING — Built Different',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'DRFTN CLOTHING — Built Different',
+    description: 'Born in Yelahanka, Bengaluru. Drift in style with premium imported streetwear.',
+    images: ['/og-default.jpg'],
   },
   robots: {
     index: true,
@@ -57,12 +72,12 @@ export default function RootLayout({
       <html lang="en" suppressHydrationWarning>
         <head>
           <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
-          <link 
-            rel="stylesheet" 
-            id="silktide-consent-manager-css" 
-            href="https://cdn.jsdelivr.net/gh/silktide/consent-manager@v2.0.1/silktide-consent-manager.css" 
-            integrity="sha384-EdMq+R+YOnsbelo08wPenoTlnxbAyxI11NMIxzugx/qAsbh64KcOkqxYqq6pfvO/" 
-            crossOrigin="anonymous" 
+          <link
+            rel="stylesheet"
+            id="silktide-consent-manager-css"
+            href="https://cdn.jsdelivr.net/gh/silktide/consent-manager@v2.0.1/silktide-consent-manager.css"
+            integrity="sha384-EdMq+R+YOnsbelo08wPenoTlnxbAyxI11NMIxzugx/qAsbh64KcOkqxYqq6pfvO/"
+            crossOrigin="anonymous"
           />
           <style id="silktide-consent-manager-overrides">
             {`
@@ -82,9 +97,9 @@ export default function RootLayout({
               }
             `}
           </style>
-          <script 
-            src="https://cdn.jsdelivr.net/gh/silktide/consent-manager@v2.0.1/silktide-consent-manager.js" 
-            integrity="sha384-5Pt34uiIbCsvfiiZXoLi4HRf/YBXjr9c8e+gYeVo9smUaInNHYVtc8NZ8wUnXJIq" 
+          <script
+            src="https://cdn.jsdelivr.net/gh/silktide/consent-manager@v2.0.1/silktide-consent-manager.js"
+            integrity="sha384-5Pt34uiIbCsvfiiZXoLi4HRf/YBXjr9c8e+gYeVo9smUaInNHYVtc8NZ8wUnXJIq"
             crossOrigin="anonymous"
             defer
           />
@@ -174,29 +189,30 @@ export default function RootLayout({
         </head>
         <body suppressHydrationWarning className="antialiased min-h-screen flex flex-col bg-brand-black text-brand-offwhite">
           <AuthSessionProvider>
-          {/* Global Navbar */}
-          <Navbar />
+            {/* Global Navbar */}
+            <Navbar />
 
-          {/* Main Content Area */}
-          <main className="flex-1 flex flex-col relative w-full">
-            {children}
-          </main>
+            {/* Main Content Area */}
+            <main className="flex-1 flex flex-col relative w-full">
+              {children}
+            </main>
 
-          {/* Global Footer */}
-          <Footer />
+            {/* Global Footer */}
+            <Footer />
 
-          {/* Global Navigation Drawers and Widgets */}
-          <MiniCart />
-          <MobileNavbar />
-          <WhatsAppButton />
-          <ToastContainer />
-          <AddToCartAnimation />
-          <BrandLoader />
-          <PushPrompt />
-          <LoginIncentivePopup />
-          <NotificationToast />
-          {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}
-          <div id="clerk-captcha" />
+            {/* Global Navigation Drawers and Widgets */}
+            <MiniCart />
+            <MobileNavbar />
+            <WhatsAppButton />
+            <ToastContainer />
+            <AddToCartAnimation />
+            <BrandLoader />
+            <PushPrompt />
+            <LoginIncentivePopup />
+            <NotificationToast />
+            <CustomCursor />
+            {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}
+            <div id="clerk-captcha" />
           </AuthSessionProvider>
 
         </body>

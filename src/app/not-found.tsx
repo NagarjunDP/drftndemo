@@ -1,28 +1,28 @@
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 
 export default function NotFound() {
   return (
     <main className="min-h-[75vh] flex flex-col items-center justify-center p-6 text-center bg-brand-black" role="main">
-      {/* 404 Large background Display */}
-      <div className="relative select-none" aria-hidden="true">
-        <h1 className="text-[10rem] md:text-[16rem] font-display font-extrabold tracking-tighter text-brand-charcoal leading-none">
-          404
-        </h1>
+      <div className="relative w-36 h-10 select-none mb-8">
+        <Image
+          src="/logo.png?v=3"
+          alt="DRFTN"
+          fill
+          unoptimized
+          priority
+          className="object-contain object-center"
+        />
       </div>
 
-      <div className="-mt-10 md:-mt-16 z-10 space-y-6 max-w-md">
-        <h2 className="text-2xl md:text-4xl font-display font-bold uppercase tracking-wider text-brand-offwhite">
-          Lost in the Sauce
+      <div className="space-y-6 max-w-md flex flex-col items-center">
+        <h2 className="text-xl md:text-2xl font-display font-black uppercase tracking-widest text-brand-offwhite">
+          NOTHING HERE.
         </h2>
-        <p className="text-brand-stone text-xs md:text-sm leading-relaxed font-body font-light">
-          The pieces you&apos;re looking for don&apos;t exist or have been moved. Let&apos;s get you back to the streets.
-        </p>
-        <div className="pt-6">
-          <Link href="/shop" className="btn-primary">
+        <div className="pt-2">
+          <Link href="/shop" className="btn-primary text-[10px] py-3 px-8 tracking-widest uppercase rounded-sm border border-white/20 hover:bg-white hover:text-black transition-all">
             <span>Back to Shop</span>
-            <ArrowRight className="w-3.5 h-3.5 relative z-10" aria-hidden="true" />
           </Link>
         </div>
       </div>

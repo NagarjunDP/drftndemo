@@ -1,12 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import Image from 'next/image';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { motion, useReducedMotion } from 'framer-motion';
-
-gsap.registerPlugin(ScrollTrigger);
+import { motion, useReducedMotion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
 
 interface HeroSectionProps {
   variant?: string;
@@ -18,179 +14,91 @@ export default function HeroSection(props: HeroSectionProps) {
   const heroRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion() ?? false;
 
-  useEffect(() => {
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const springX = useSpring(mouseX, { damping: 40, stiffness: 200 });
+  const springY = useSpring(mouseY, { damping: 40, stiffness: 200 });
+
+  const { scrollY } = useScroll();
+
+  const handleMouseMove = (e: React.MouseEvent) => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (prefersReducedMotion) {
-      gsap.set('.hero-fade-in', { opacity: 1, y: 0 });
-      return;
-    }
-
+    if (prefersReducedMotion) return;
     const hero = heroRef.current;
     if (!hero) return;
+    const { width, height } = hero.getBoundingClientRect();
+    const x = (e.clientX - width / 2) / (width / 2); // -1 to 1
+    const y = (e.clientY - height / 2) / (height / 2); // -1 to 1
+    mouseX.set(x);
+    mouseY.set(y);
+  };
 
-    // 1. Desktop cursor-reactive parallax
-    const cursorLayers = hero.querySelectorAll('.hero-cursor-layer');
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const { width, height } = hero.getBoundingClientRect();
-      const x = (e.clientX - width / 2) / (width / 2); // -1 to 1
-      const y = (e.clientY - height / 2) / (height / 2); // -1 to 1
+  const useParallax = (depth: number) => {
+    // Scroll translation uses depth * 88
+    const yScroll = useTransform(scrollY, [0, 800], [0, -depth * 88]);
+    const xCursor = useTransform(springX, (val) => val * depth * -22);
+    const yCursor = useTransform(springY, (val) => val * depth * -22);
+    const x = xCursor;
+    const y = useTransform(() => yScroll.get() + yCursor.get());
+    return { x, y };
+  };
 
-      cursorLayers.forEach((layer) => {
-        const depth = parseFloat(layer.getAttribute('data-depth') || '0');
-        const moveX = -x * depth * 22; // max 22px translation
-        const moveY = -y * depth * 22;
-        gsap.to(layer, {
-          x: moveX,
-          y: moveY,
-          duration: 0.8,
-          ease: 'power2.out',
-          overwrite: 'auto'
-        });
-      });
-    };
+  const p1 = useParallax(0.1);
+  const p2 = useParallax(0.25);
+  const pDrift = useParallax(0.35);
+  const p3 = useParallax(0.45);
+  const p4 = useParallax(0.7);
+  const p5 = useParallax(1.0);
 
-    if (!isTouchDevice) {
-      hero.addEventListener('mousemove', handleMouseMove);
-    }
+  // Drift in Style scrolling transition
+  const driftScrollX = useTransform(scrollY, [0, 400], [0, 320]);
+  const driftCombinedX = useTransform(() => pDrift.x.get() + driftScrollX.get());
+  const driftCombinedY = pDrift.y;
+  const driftOpacity = useTransform(scrollY, [0, 200], [1, 0]);
 
-    // 2. Mobile/scroll-driven vertical parallax
-    const scrollLayers = hero.querySelectorAll('.hero-scroll-layer');
-    const scrollTriggersList: ScrollTrigger[] = [];
-
-    scrollLayers.forEach((layer) => {
-      const depth = parseFloat(layer.getAttribute('data-depth') || '0');
-      const maxShift = isTouchDevice ? depth * 40 : depth * 110;
-      const tween = gsap.to(layer, {
-        scrollTrigger: {
-          trigger: hero,
-          start: 'top top',
-          end: 'bottom top',
-          scrub: isTouchDevice ? 1.8 : 1, // smooth liquid interpolation on touch
-        },
-        y: -maxShift, // vertical shift
-        ease: 'power1.out',
-        force3D: true, // GPU acceleration
-      });
-      if (tween.scrollTrigger) {
-        scrollTriggersList.push(tween.scrollTrigger);
-      }
-    });
-
-    // 3. Neon signage light flicker on Layer 2
-    const neonLayer = hero.querySelector('.hero-layer-neon');
-    let neonTween: gsap.core.Timeline | null = null;
-    let flickerTimeout: NodeJS.Timeout | null = null;
-
-    if (neonLayer) {
-      const triggerFlicker = () => {
-        neonTween = gsap.timeline({
-          onComplete: () => {
-            flickerTimeout = setTimeout(triggerFlicker, gsap.utils.random(4000, 9000));
-          }
-        });
-        neonTween.to(neonLayer, {
-          filter: 'brightness(1.25) contrast(1.15) grayscale(1)',
-          duration: 0.04,
-          yoyo: true,
-          repeat: 3,
-          ease: 'power1.inOut'
-        }).to(neonLayer, {
-          filter: 'brightness(0.8) contrast(1.1) grayscale(1)',
-          duration: 0.08
-        });
-      };
-
-      flickerTimeout = setTimeout(triggerFlicker, 3000);
-    }
-
-    // GSAP staggered headline animation removed (now handled by Framer Motion)
-
-    // 5. Fade + slide up for eyebrow, subcopy, and CTA buttons
-    gsap.fromTo('.hero-fade-in',
-      { opacity: 0, y: 10 },
-      {
-        opacity: 1,
-        y: 0,
+  // Entrance animations variants
+  const fadeInVariants = {
+    initial: { opacity: 0, y: 10 },
+    animate: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: {
         duration: 0.8,
-        delay: 0.45,
-        stagger: 0.1,
-        ease: 'power3.out'
+        delay: 0.45 + i * 0.15,
+        ease: [0.25, 1, 0.5, 1] as const
       }
-    );
+    })
+  };
 
-    // Drift in Style load-in staggered fade + slide up
-    gsap.fromTo('.hero-drift-word',
-      { opacity: 0, y: 20 },
-      {
-        opacity: 1,
-        y: 0,
+  const driftWordVariants = {
+    initial: { opacity: 0, y: 20 },
+    animate: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: {
         duration: 0.8,
-        delay: 0.6,
-        stagger: 0.1,
-        ease: 'power3.out'
+        delay: 0.6 + i * 0.15,
+        ease: [0.25, 1, 0.5, 1] as const
       }
-    );
-
-    // Drift in Style container rightward (outward) drift on scroll
-    const driftContainer = hero.querySelector('.hero-drift-container');
-    if (driftContainer) {
-      const isMobile = window.innerWidth < 768;
-      const driftX = isMobile ? 200 : (isTouchDevice ? 160 : 320);
-      const driftTween = gsap.fromTo(driftContainer,
-        { x: 0, opacity: 1 },
-        {
-          scrollTrigger: {
-            trigger: hero,
-            start: 'top top',
-            end: isMobile ? '+=320' : '+=400', // slow graceful drift on mobile (320px)
-            scrub: isMobile ? 1.2 : 0.5,       // smooth eased follow, not instant
-          },
-          x: driftX,
-          opacity: 0,
-          ease: 'power1.out',
-          force3D: true,
-        }
-      );
-      if (driftTween.scrollTrigger) {
-        scrollTriggersList.push(driftTween.scrollTrigger);
-      }
-    }
-
-    return () => {
-      if (!isTouchDevice && hero) {
-        hero.removeEventListener('mousemove', handleMouseMove);
-      }
-      scrollTriggersList.forEach((st) => st.kill());
-      if (flickerTimeout) {
-        clearTimeout(flickerTimeout);
-      }
-      if (neonTween) {
-        neonTween.kill();
-      }
-    };
-  }, []);
+    })
+  };
 
   return (
     <div
       ref={heroRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       className="relative w-full h-[80vh] sm:h-[95vh] min-h-[500px] sm:min-h-[600px] bg-black overflow-hidden flex items-center justify-start px-7 md:px-16 lg:px-24"
     >
       {/* ── Soft Drifting Ambient background glow (no color hues) ── */}
       {!shouldReduceMotion && (
-        <motion.div
-          className="absolute left-[15%] top-[25%] w-[320px] h-[320px] rounded-full bg-white/[0.07] blur-[110px] pointer-events-none z-10"
-          animate={{
-            x: [0, 35, -20, 0],
-            y: [0, -40, 25, 0],
-          }}
-          transition={{
-            duration: 12,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
+        <div
+          className="absolute left-[15%] top-[25%] w-[320px] h-[320px] rounded-full bg-white/[0.07] blur-[110px] pointer-events-none z-10 animate-ambient-drift"
         />
       )}
 
@@ -198,133 +106,141 @@ export default function HeroSection(props: HeroSectionProps) {
       <div className="absolute inset-0 z-0 overflow-hidden select-none pointer-events-none">
 
         {/* Layer 1 (Backmost - Skyline silhouette) */}
-        <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="0.1" style={{ willChange: 'transform' }}>
-          <div className="absolute inset-0 w-full h-full hero-cursor-layer" data-depth="0.1" style={{ willChange: 'transform' }}>
-            <Image
-              src="/layer1.png"
-              alt="DRFTN Hero Layer 1 - Skyline"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center scale-[1.05] grayscale contrast-[1.1] brightness-[0.75]"
-            />
-          </div>
-        </div>
+        <motion.div
+          style={shouldReduceMotion ? {} : p1}
+          className="absolute inset-0 w-full h-full"
+        >
+          <Image
+            src="/layer1.png"
+            alt="DRFTN Hero Layer 1 - Skyline"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center scale-[1.05] grayscale contrast-[1.1] brightness-[0.75]"
+          />
+        </motion.div>
 
         {/* Layer 2 (Street environment/signage) */}
-        <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="0.25" style={{ willChange: 'transform' }}>
-          <div className="absolute inset-0 w-full h-full hero-cursor-layer hero-layer-neon" data-depth="0.25" style={{ willChange: 'transform' }}>
-            <Image
-              src="/layer2.png"
-              alt="DRFTN Hero Layer 2 - Street"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center scale-[1.07] grayscale contrast-[1.1] brightness-[0.8]"
-            />
-          </div>
-        </div>
+        <motion.div
+          style={shouldReduceMotion ? {} : p2}
+          className="absolute inset-0 w-full h-full animate-neon-flicker"
+        >
+          <Image
+            src="/layer2.png"
+            alt="DRFTN Hero Layer 2 - Street"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center scale-[1.07] grayscale contrast-[1.1] brightness-[0.8]"
+          />
+        </motion.div>
 
         {/* ── Transitional Beat: Drift in Style (Layer 2.5: Physically behind Layer 3 model) ── */}
-        <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="0.35" style={{ willChange: 'transform' }}>
-          <div className="absolute inset-0 w-full h-full hero-cursor-layer" data-depth="0.35" style={{ willChange: 'transform' }}>
-            <div className="absolute top-[44%] md:top-[32%] right-[6%] sm:right-[8%] md:right-[10%] lg:right-[12%] z-10 pointer-events-none hero-drift-container text-right flex flex-col items-end select-none">
-              <span
-                className="hero-drift-word opacity-0 block uppercase leading-[0.82] tracking-[-0.02em]"
-                style={{
-                  fontFamily: 'var(--font-display, inherit)',
-                  fontWeight: 900,
-                  fontStyle: 'italic',
-                  fontSize: 'clamp(2.8rem, 12vw, 4rem)',
-                  color: '#ffffff',
-                  textShadow: '0 0 30px rgba(255,255,255,0.4), 0 0 10px rgba(255,255,255,0.2)',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                Drift
-              </span>
-              <span
-                className="hero-drift-word opacity-0 block uppercase"
-                style={{
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontWeight: 800,
-                  fontStyle: 'normal',
-                  fontSize: 'clamp(1.2rem, 4vw, 1.6rem)',
-                  color: '#ffffff',
-                  textShadow: '0 0 30px rgba(255,255,255,0.4), 0 0 10px rgba(255,255,255,0.2)',
-                  letterSpacing: '0.25em',
-                  margin: '0.4rem 0',
-                }}
-              >
-                in
-              </span>
-              <span
-                className="hero-drift-word opacity-0 block uppercase leading-[0.82]"
-                style={{
-                  fontFamily: 'var(--font-display, inherit)',
-                  fontWeight: 900,
-                  fontStyle: 'normal',
-                  fontSize: 'clamp(2.8rem, 12vw, 4rem)',
-                  color: '#ffffff',
-                  textShadow: '0 0 50px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.2)',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                Style
-              </span>
-            </div>
-          </div>
-        </div>
+        <motion.div
+          style={shouldReduceMotion ? {} : { x: driftCombinedX, y: driftCombinedY, opacity: driftOpacity }}
+          className="absolute top-[44%] md:top-[32%] right-[6%] sm:right-[8%] md:right-[10%] lg:right-[12%] z-10 pointer-events-none hero-drift-container text-right flex flex-col items-end select-none"
+        >
+          <motion.span
+            variants={driftWordVariants}
+            custom={0}
+            initial="initial"
+            animate="animate"
+            className="block uppercase leading-[0.82] tracking-[-0.02em]"
+            style={{
+              fontFamily: 'var(--font-display, inherit)',
+              fontWeight: 900,
+              fontStyle: 'italic',
+              fontSize: 'clamp(2.8rem, 12vw, 4rem)',
+              color: '#ffffff',
+              textShadow: '0 0 30px rgba(255,255,255,0.4), 0 0 10px rgba(255,255,255,0.2)',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Drift
+          </motion.span>
+          <motion.span
+            variants={driftWordVariants}
+            custom={1}
+            initial="initial"
+            animate="animate"
+            className="block uppercase"
+            style={{
+              fontFamily: 'var(--font-mono, monospace)',
+              fontWeight: 800,
+              fontStyle: 'normal',
+              fontSize: 'clamp(1.2rem, 4vw, 1.6rem)',
+              color: '#ffffff',
+              textShadow: '0 0 30px rgba(255,255,255,0.4), 0 0 10px rgba(255,255,255,0.2)',
+              letterSpacing: '0.25em',
+              margin: '0.4rem 0',
+            }}
+          >
+            in
+          </motion.span>
+          <motion.span
+            variants={driftWordVariants}
+            custom={2}
+            initial="initial"
+            animate="animate"
+            className="block uppercase leading-[0.82]"
+            style={{
+              fontFamily: 'var(--font-display, inherit)',
+              fontWeight: 900,
+              fontStyle: 'normal',
+              fontSize: 'clamp(2.8rem, 12vw, 4rem)',
+              color: '#ffffff',
+              textShadow: '0 0 50px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.2)',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Style
+          </motion.span>
+        </motion.div>
 
         {/* Layer 3 (Model - Subject) */}
-        <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="0.45" style={{ willChange: 'transform' }}>
-          <div className="absolute inset-0 w-full h-full hero-cursor-layer" data-depth="0.45" style={{ willChange: 'transform' }}>
-            <Image
-              src="/layer3.png"
-              alt="DRFTN Hero Layer 3 - Model"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center scale-[1.09] grayscale contrast-[1.15] brightness-[0.85]"
-            />
-          </div>
-        </div>
+        <motion.div
+          style={shouldReduceMotion ? {} : p3}
+          className="absolute inset-0 w-full h-full"
+        >
+          <Image
+            src="/layer3.png"
+            alt="DRFTN Hero Layer 3 - Model"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center scale-[1.09] grayscale contrast-[1.15] brightness-[0.85]"
+          />
+        </motion.div>
 
         {/* Layer 4 (Atmospheric particles - chains/mist) */}
-        <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="0.7" style={{ willChange: 'transform' }}>
-          <div
-            className="absolute inset-0 w-full h-full hero-cursor-layer"
-            data-depth="0.7"
-            style={{ mixBlendMode: 'screen', opacity: 0.2, willChange: 'transform' }}
-          >
-            <Image
-              src="/layer4.png"
-              alt="DRFTN Hero Layer 4 - Particles"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center scale-[1.11] grayscale contrast-[1.1] brightness-[0.85]"
-            />
-          </div>
-        </div>
+        <motion.div
+          style={shouldReduceMotion ? { mixBlendMode: 'screen', opacity: 0.2 } : { x: p4.x, y: p4.y, mixBlendMode: 'screen' as const, opacity: 0.2 }}
+          className="absolute inset-0 w-full h-full"
+        >
+          <Image
+            src="/layer4.png"
+            alt="DRFTN Hero Layer 4 - Particles"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center scale-[1.11] grayscale contrast-[1.1] brightness-[0.85]"
+          />
+        </motion.div>
 
         {/* Layer 5 (Foreground rain/bokeh) */}
-        <div className="absolute inset-0 w-full h-full hero-scroll-layer" data-depth="1.0" style={{ willChange: 'transform' }}>
-          <div
-            className="absolute inset-0 w-full h-full hero-cursor-layer"
-            data-depth="1.0"
-            style={{ mixBlendMode: 'screen', opacity: 0.25, willChange: 'transform' }}
-          >
-            <Image
-              src="/layer5.png"
-              alt="DRFTN Hero Layer 5 - Rain Bokeh"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center scale-[1.13] grayscale contrast-[1.1] brightness-[0.9]"
-            />
-          </div>
-        </div>
+        <motion.div
+          style={shouldReduceMotion ? { mixBlendMode: 'screen', opacity: 0.25 } : { x: p5.x, y: p5.y, mixBlendMode: 'screen' as const, opacity: 0.25 }}
+          className="absolute inset-0 w-full h-full"
+        >
+          <Image
+            src="/layer5.png"
+            alt="DRFTN Hero Layer 5 - Rain Bokeh"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center scale-[1.13] grayscale contrast-[1.1] brightness-[0.9]"
+          />
+        </motion.div>
 
         {/* 1. Vignette Overlay (Radial corner darkening) */}
         <div
@@ -352,9 +268,15 @@ export default function HeroSection(props: HeroSectionProps) {
         <div className="flex flex-col pointer-events-auto">
 
           {/* Eyebrow Label (margin: 16px to headline) */}
-          <span className="hero-fade-in opacity-0 text-white/60 text-xs md:text-sm font-bold tracking-[0.25em] uppercase block font-body mb-2 md:mb-4">
+          <motion.span
+            custom={0}
+            variants={fadeInVariants}
+            initial="initial"
+            animate="animate"
+            className="text-white/60 text-xs md:text-sm font-bold tracking-[0.25em] uppercase block font-body mb-2 md:mb-4"
+          >
             DRFTN ORIGINALS — MID-SEASON 02
-          </span>
+          </motion.span>
 
           {/* Integrated Typography: Large font with outline middle word overlapping the model subject */}
           {/* Mobile version (two stacked lines, tighter spacing) */}
@@ -372,16 +294,9 @@ export default function HeroSection(props: HeroSectionProps) {
             <div className="relative mt-1 w-full h-[54px] flex items-center">
               {/* Ambient Glow Pulse behind outlined text */}
               {!shouldReduceMotion && (
-                <motion.div
-                  className="absolute left-6 w-[180px] h-[30px] bg-white/20 blur-[28px] rounded-full pointer-events-none"
-                  initial={{ opacity: 0.15 }}
-                  animate={{ opacity: [0.15, 0.35, 0.15] }}
-                  transition={{
-                    duration: 4,
-                    repeat: Infinity,
-                    ease: 'easeInOut',
-                    delay: 1.2,
-                  }}
+                <div
+                  className="absolute left-6 w-[180px] h-[30px] bg-white/20 blur-[28px] rounded-full pointer-events-none animate-hero-glow-pulse"
+                  style={{ opacity: 0.15 }}
                 />
               )}
               {shouldReduceMotion ? (
@@ -440,16 +355,9 @@ export default function HeroSection(props: HeroSectionProps) {
             <div className="relative mt-2 w-[550px] h-[130px] flex items-center">
               {/* Ambient Glow Pulse behind outlined text */}
               {!shouldReduceMotion && (
-                <motion.div
-                  className="absolute left-10 w-[350px] h-[60px] bg-white/15 blur-[45px] rounded-full pointer-events-none"
-                  initial={{ opacity: 0.15 }}
-                  animate={{ opacity: [0.15, 0.3, 0.15] }}
-                  transition={{
-                    duration: 4.5,
-                    repeat: Infinity,
-                    ease: 'easeInOut',
-                    delay: 1.3,
-                  }}
+                <div
+                  className="absolute left-10 w-[350px] h-[60px] bg-white/15 blur-[45px] rounded-full pointer-events-none animate-hero-glow-pulse-desktop"
+                  style={{ opacity: 0.15 }}
                 />
               )}
               {shouldReduceMotion ? (
@@ -470,11 +378,11 @@ export default function HeroSection(props: HeroSectionProps) {
                     y="105"
                     fill="none"
                     stroke="url(#glowGradDesktop)"
-                    strokeWidth="2.2"
+                    strokeWidth="2.5"
                     className="font-display font-black tracking-tighter uppercase text-[105px]"
-                    initial={{ strokeDashoffset: 900, strokeDasharray: '120 780' }}
-                    animate={{ strokeDashoffset: 0, strokeDasharray: '900 0' }}
-                    transition={{ duration: 1.2, ease: 'easeInOut', delay: 0.25 }}
+                    initial={{ strokeDashoffset: 950, strokeDasharray: '120 830' }}
+                    animate={{ strokeDashoffset: 0, strokeDasharray: '950 0' }}
+                    transition={{ duration: 1.4, ease: 'easeInOut', delay: 0.2 }}
                   >
                     CHAOS.
                   </motion.text>
@@ -484,12 +392,24 @@ export default function HeroSection(props: HeroSectionProps) {
           </h1>
 
           {/* Subcopy (margin: 32px to CTA) */}
-          <p className="hidden sm:block hero-fade-in opacity-0 text-brand-stone text-xs sm:text-sm md:text-base font-semibold tracking-widest uppercase font-body max-w-md leading-relaxed mb-8">
+          <motion.p
+            custom={1}
+            variants={fadeInVariants}
+            initial="initial"
+            animate="animate"
+            className="hidden sm:block text-brand-stone text-xs sm:text-sm md:text-base font-semibold tracking-widest uppercase font-body max-w-md leading-relaxed mb-8"
+          >
             TAILORED FOR VELOCITY. ENGINEERED FOR STABILITY. HEAVYWEIGHT GARMENTS SHAPED BY THE STREETS.
-          </p>
+          </motion.p>
 
           {/* CTA Buttons */}
-          <div className="hero-fade-in opacity-0 flex flex-wrap gap-4">
+          <motion.div
+            custom={2}
+            variants={fadeInVariants}
+            initial="initial"
+            animate="animate"
+            className="flex flex-wrap gap-4"
+          >
             <motion.a
               href="/shop"
               whileTap={shouldReduceMotion ? {} : {
@@ -512,7 +432,7 @@ export default function HeroSection(props: HeroSectionProps) {
             >
               OUR ORIGINS
             </motion.a>
-          </div>
+          </motion.div>
         </div>
       </div>
 
@@ -522,7 +442,7 @@ export default function HeroSection(props: HeroSectionProps) {
         <div className="w-12 h-[1px] bg-brand-graphite" />
       </div>
 
-      {/* ── Infinite Ticker Strip (Steps 1 & 2: Bottom persistent motion strip) ── */}
+      {/* ── Infinite Ticker Strip (Bottom persistent motion strip) ── */}
       <div className="absolute bottom-0 left-0 w-full bg-[#121212]/90 backdrop-blur-sm border-t border-b border-white/5 py-2.5 overflow-hidden flex select-none pointer-events-none z-30">
         <div className="flex whitespace-nowrap min-w-full shrink-0 items-center justify-around gap-4 animate-marquee">
           <span className="text-[9px] md:text-[10px] uppercase font-mono font-bold tracking-widest text-brand-stone">BUILT DIFFERENT</span>

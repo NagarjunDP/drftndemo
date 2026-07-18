@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category } from '@/types';
-import { ArrowLeft, Trash2, ArrowLeftRight, Upload, Sparkles, MoveLeft, MoveRight, Star, HelpCircle, Camera, Loader2, Plus } from 'lucide-react';
+import { ArrowLeft, Trash2, ArrowLeftRight, Upload, Sparkles, MoveLeft, MoveRight, Star, HelpCircle, Camera, Loader2, Plus, Link2 } from 'lucide-react';
 import { useToast } from '@/components/ToastContainer';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
@@ -52,6 +52,10 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
   // AI & SEO Tags States
   const [tagsInput, setTagsInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+
+  // URL paste input state
+  const [urlPasteInputs, setUrlPasteInputs] = useState<string[]>(['']);
+  const [urlImageErrors, setUrlImageErrors] = useState<Record<number, boolean>>({});
   
   // Camera inputs & Preview canvas refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -296,6 +300,56 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     const updated = tags.filter(t => t !== tagToRemove);
     setTags(updated);
     setTagsInput(updated.join(', '));
+  };
+
+  // ── URL Paste Handlers ──────────────────────────────────────────────────
+  const handleUrlInputChange = (index: number, value: string) => {
+    setUrlPasteInputs(prev => prev.map((u, i) => (i === index ? value : u)));
+    setUrlImageErrors(prev => ({ ...prev, [index]: false }));
+  };
+
+  const handleAddUrlRow = () => {
+    if (urlPasteInputs.length >= 8) return;
+    setUrlPasteInputs(prev => [...prev, '']);
+  };
+
+  const handleRemoveUrlRow = (index: number) => {
+    setUrlPasteInputs(prev => prev.filter((_, i) => i !== index));
+    setUrlImageErrors(prev => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+  };
+
+  const handleMoveUrlUp = (index: number) => {
+    if (index === 0) return;
+    setUrlPasteInputs(prev => {
+      const next = [...prev];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      return next;
+    });
+  };
+
+  const handleMoveUrlDown = (index: number) => {
+    setUrlPasteInputs(prev => {
+      if (index >= prev.length - 1) return prev;
+      const next = [...prev];
+      [next[index], next[index + 1]] = [next[index + 1], next[index]];
+      return next;
+    });
+  };
+
+  const handleAddUrlsToGallery = () => {
+    const validUrls = urlPasteInputs.filter((u, idx) => u.trim() !== '' && !urlImageErrors[idx]);
+    if (validUrls.length === 0) {
+      addToast('No valid image URLs to add — enter at least one URL and ensure it loads.', 'error');
+      return;
+    }
+    setImages(prev => [...prev, ...validUrls]);
+    setUrlPasteInputs(['']);
+    setUrlImageErrors({});
+    addToast(`${validUrls.length} image URL(s) added to gallery`, 'success');
   };
 
   // Intercept uploads or camera captures to run background removal
@@ -724,6 +778,17 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         is_active: isActive,
       };
 
+      // [DEV] Log the exact payload being sent to the DB for verification
+      console.log('[DEV] Product payload →', JSON.stringify({
+        ...payload,
+        price_rupees: Number(price),
+        price_paise: payload.price,
+        compare_price_rupees: comparePrice ? Number(comparePrice) : undefined,
+        compare_price_paise: payload.compare_price,
+        images_count: images.length,
+        images_order: images.map((url, i) => ({ sort_order: i, url: url.slice(0, 80) + (url.length > 80 ? '…' : '') })),
+      }, null, 2));
+
       if (mode === 'create') {
         await db.createProduct(payload as any);
         addToast('Product created successfully', 'success');
@@ -817,12 +882,30 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                       try {
                         setIsGeneratingDescription(true);
                         setBgRemovalStatus('Generating product details with Gemini...');
-                        const res = await fetch(images[0]);
-                        const blob = await res.blob();
-                        await generateDescription(blob);
+                        // Server-side fetch avoids CORS restrictions on Cloudinary URLs
+                        const genRes = await fetch('/api/admin/generate-description', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ imageUrl: images[0] }),
+                        });
+                        if (!genRes.ok) {
+                          const errData = await genRes.json().catch(() => ({}));
+                          throw new Error(errData.error || `HTTP ${genRes.status}`);
+                        }
+                        const genData = await genRes.json();
+                        if (genData.title) {
+                          setName(genData.title);
+                          setSlug(genData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''));
+                        }
+                        if (genData.description) setDescription(genData.description);
+                        if (genData.tags?.length > 0) {
+                          setTags(genData.tags);
+                          setTagsInput(genData.tags.join(', '));
+                        }
+                        addToast('AI title, description & tags generated!', 'success');
                       } catch (err: any) {
                         console.error(err);
-                        addToast(`Failed to parse cover image: ${err.message || err}`, 'error');
+                        addToast(`Failed to generate AI copy: ${err.message || err}`, 'error');
                       } finally {
                         setIsGeneratingDescription(false);
                         setBgRemovalStatus('');
@@ -939,6 +1022,117 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
             </div>
 
             <div className="space-y-6">
+              {/* ── URL Paste Panel ─────────────────────────────────────────── */}
+              <div className="border border-zinc-200 bg-zinc-50/40 p-5 rounded-lg space-y-4">
+                <div>
+                  <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-widest flex items-center gap-2">
+                    <Link2 className="w-3.5 h-3.5 text-brand-red" />
+                    Paste Cloudinary URLs
+                  </h3>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Paste image URLs directly. First row becomes the preview shown on the shop grid (sort_order&nbsp;0).
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {urlPasteInputs.map((url, idx) => (
+                    <div key={idx} className="flex gap-2 items-start">
+                      {/* Live thumbnail */}
+                      <div className="w-12 h-14 shrink-0 border border-zinc-200 bg-zinc-100 rounded overflow-hidden flex items-center justify-center">
+                        {url.trim() ? (
+                          urlImageErrors[idx] ? (
+                            <span className="text-[8px] text-red-500 font-bold text-center px-0.5 leading-tight">Bad URL</span>
+                          ) : (
+                            <img
+                              src={url}
+                              alt={`url-preview-${idx}`}
+                              className="w-full h-full object-cover"
+                              onError={() => setUrlImageErrors(prev => ({ ...prev, [idx]: true }))}
+                              onLoad={() => setUrlImageErrors(prev => ({ ...prev, [idx]: false }))}
+                            />
+                          )
+                        ) : (
+                          <Camera className="w-4 h-4 text-zinc-300" />
+                        )}
+                      </div>
+
+                      {/* Input + controls */}
+                      <div className="flex-1 space-y-1">
+                        {idx === 0 && (
+                          <span className="text-[9px] text-brand-red font-bold uppercase tracking-widest">
+                            ★ Preview image — shown on shop grid (sort_order 0)
+                          </span>
+                        )}
+                        <div className="flex gap-1.5 items-center">
+                          <input
+                            type="url"
+                            placeholder={idx === 0 ? 'https://res.cloudinary.com/…' : 'Additional image URL'}
+                            value={url}
+                            onChange={e => handleUrlInputChange(idx, e.target.value)}
+                            className={`flex-1 bg-white border text-zinc-900 px-3 py-2 text-xs focus:outline-none transition-all font-mono ${
+                              urlImageErrors[idx]
+                                ? 'border-red-400 focus:ring-1 focus:ring-red-400'
+                                : 'border-zinc-200 focus:border-zinc-950 focus:ring-1 focus:ring-zinc-950'
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleMoveUrlUp(idx)}
+                            disabled={idx === 0}
+                            className="p-1.5 border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 hover:text-zinc-900 disabled:opacity-30 disabled:cursor-not-allowed rounded transition-colors"
+                            title="Move up"
+                          >
+                            <MoveLeft className="w-3 h-3 rotate-90" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveUrlDown(idx)}
+                            disabled={idx >= urlPasteInputs.length - 1}
+                            className="p-1.5 border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 hover:text-zinc-900 disabled:opacity-30 disabled:cursor-not-allowed rounded transition-colors"
+                            title="Move down"
+                          >
+                            <MoveRight className="w-3 h-3 rotate-90" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveUrlRow(idx)}
+                            disabled={urlPasteInputs.length === 1}
+                            className="p-1.5 border border-zinc-200 bg-white hover:bg-red-50 hover:border-red-300 text-zinc-500 hover:text-brand-red disabled:opacity-30 disabled:cursor-not-allowed rounded transition-colors"
+                            title="Remove row"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                        {urlImageErrors[idx] && (
+                          <p className="text-[10px] text-red-500">
+                            Couldn’t load this URL — check for typos or access restrictions.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-4 pt-2 border-t border-zinc-200/60">
+                  <button
+                    type="button"
+                    onClick={handleAddUrlRow}
+                    disabled={urlPasteInputs.length >= 8}
+                    className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 hover:text-zinc-900 flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Plus className="w-3 h-3" /> Add another image
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddUrlsToGallery}
+                    disabled={urlPasteInputs.every(u => !u.trim())}
+                    className="ml-auto px-5 py-2 bg-zinc-900 text-white text-[10px] uppercase font-bold tracking-widest hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded shadow-sm"
+                  >
+                    Add to Gallery ↓
+                  </button>
+                </div>
+              </div>
+
               {/* Hidden inputs */}
               <input
                 ref={fileInputRef}

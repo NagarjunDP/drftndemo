@@ -5,7 +5,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { X, Plus, Minus, Trash2, ShoppingBag, Tag, ArrowRight } from 'lucide-react';
 import { useCartStore } from '../lib/cartStore';
+import { getOptimizedImageUrl } from '@/lib/cloudinary';
 import { toast } from '@/lib/toast';
+import { motion } from 'framer-motion';
 
 const FREE_SHIPPING_THRESHOLD = 99900; // ₹999 in paise
 
@@ -105,6 +107,33 @@ export default function MiniCart() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setIsOpen]);
 
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      timerRef.current = setTimeout(() => {
+        setIsOpen(false);
+      }, 2500);
+    } else {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [isOpen, setIsOpen]);
+
+  const handleInteraction = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
   const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
@@ -124,6 +153,10 @@ export default function MiniCart() {
         role="dialog"
         aria-modal="true"
         aria-label="Shopping bag"
+        onMouseEnter={handleInteraction}
+        onTouchStart={handleInteraction}
+        onClick={handleInteraction}
+        onKeyDown={handleInteraction}
         className={`fixed top-0 right-0 h-full w-full max-w-sm z-[101] bg-brand-black flex flex-col transition-transform duration-400 ease-streetwear ${
           isOpen 
             ? 'translate-x-0 border-l border-brand-graphite shadow-2xl' 
@@ -192,7 +225,7 @@ export default function MiniCart() {
               </div>
               <div className="space-y-2">
                 <p className="text-brand-offwhite font-medium uppercase tracking-[0.2em] text-sm font-display">
-                  Your Bag is Empty
+                  NO DROPS IN BAG.
                 </p>
                 <p className="text-brand-stone text-xs leading-relaxed max-w-[180px] mx-auto font-body">
                   Add some heavy hitters to get driftin&apos;.
@@ -209,15 +242,18 @@ export default function MiniCart() {
             </div>
           ) : (
             items.map((item) => (
-              <div
+              <motion.div
                 key={`${item.id}-${item.size}`}
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
                 className="flex gap-3.5 border-b border-brand-graphite pb-5 last:border-0 last:pb-0"
                 role="listitem"
               >
                 {/* Product Image */}
                 <div className="relative w-16 h-20 bg-brand-graphite overflow-hidden flex-shrink-0">
                   <Image
-                    src={item.image || 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=200'}
+                    src={getOptimizedImageUrl(item.image, 200) || 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=200'}
                     alt={`${item.name}, size ${item.size}`}
                     fill
                     sizes="64px"
@@ -249,7 +285,7 @@ export default function MiniCart() {
                         className="w-7 h-7 flex items-center justify-center text-brand-stone hover:text-brand-offwhite transition-colors"
                         aria-label={`Decrease quantity of ${item.name}`}
                       >
-                        <Minus className="w-3 h-3" />
+                        <Minus className="w-3.5 h-3.5" />
                       </button>
                       <span className="text-xs px-2 text-brand-offwhite font-bold w-6 text-center select-none">
                         {item.quantity}
@@ -260,7 +296,7 @@ export default function MiniCart() {
                         className="w-7 h-7 flex items-center justify-center text-brand-stone hover:text-brand-offwhite transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                         aria-label={`Increase quantity of ${item.name}`}
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
@@ -274,7 +310,7 @@ export default function MiniCart() {
                     </button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))
           )}
         </div>

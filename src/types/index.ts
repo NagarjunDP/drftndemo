@@ -9,6 +9,7 @@ export interface Product {
   subcategory?: string;
   gender: string; // unisex, men, women
   images: string[];
+  hidden_detail_image?: string;
   sizes: string[];
   stock_quantity: Record<string, number>; // e.g., { XS: 10, S: 5 }
   is_featured: boolean;

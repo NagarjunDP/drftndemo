@@ -1,168 +1,36 @@
 'use client';
 
-/**
- * DesktopHeroParallax
- * -------------------
- * Rendered ONLY at md+ breakpoints (≥768px) alongside the mobile HeroSection.
- * Uses GSAP ScrollTrigger for scroll-driven parallax across 4 photographic
- * layers + text. All GSAP animations are scoped to this section via gsap.context()
- * and cleaned up on unmount.
- *
- * GSAP / ScrollTrigger is already registered globally — do NOT call
- * gsap.registerPlugin() here to avoid duplicate registration warnings.
- */
-
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import Image from 'next/image';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-interface LayerRef {
-  el: HTMLDivElement | null;
-}
-
-// ─── Component ───────────────────────────────────────────────────────────────
 export default function DesktopHeroParallax() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const layer1Ref = useRef<HTMLDivElement>(null);
-  const layer2Ref = useRef<HTMLDivElement>(null);
-  const layer3Ref = useRef<HTMLDivElement>(null);
-  const driftRef = useRef<HTMLDivElement>(null);
-  const textRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion() ?? false;
+  const { scrollY } = useScroll();
 
-  useEffect(() => {
-    // ── Reduced-motion guard ─────────────────────────────────────────────────
-    const prefersReducedMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)'
-    ).matches;
+  // Parallax translation definitions
+  // Alley background plate - slowest, subtle drift
+  const yL1 = useTransform(scrollY, [0, 1000], [0, 40]);
 
-    // If reduced motion preference is on, render static composition — no GSAP
-    if (prefersReducedMotion) return;
+  // Smoke - fast scroll drift + translateX
+  const yL2 = useTransform(scrollY, [0, 1000], [0, 120]);
+  const xL2 = useTransform(scrollY, [0, 1000], [0, 30]);
 
-    const section = sectionRef.current;
-    const l1 = layer1Ref.current;
-    const l2 = layer2Ref.current;
-    const l3 = layer3Ref.current;
-    const drift = driftRef.current;
-    const text = textRef.current;
+  // Figure - mid scroll + subtle scale zoom
+  const yL3 = useTransform(scrollY, [0, 1000], [0, 70]);
+  const scaleL3 = useTransform(scrollY, [0, 1000], [1, 1.05]);
 
-    if (!section || !l1 || !l2 || !l3 || !drift || !text) return;
+  // Drift in Style - parallax + horizontal drift
+  const yDrift = useTransform(scrollY, [0, 1000], [0, -38.5]);
+  const xDrift = useTransform(scrollY, [0, 1000], [0, 320]);
+  const opacityDrift = useTransform(scrollY, [0, 500], [1, 0]);
 
-    // All tweens scoped to this section — auto-killed on unmount via ctx.revert()
-    const ctx = gsap.context(() => {
-
-      // ── Helper: Toggle will-change only during active scroll ───────────────
-      const scrollLayers = [l1, l2, l3, drift, text];
-      const enableWillChange = () => {
-        scrollLayers.forEach((el) => {
-          if (el) el.style.willChange = 'transform, opacity';
-        });
-      };
-      const disableWillChange = () => {
-        scrollLayers.forEach((el) => {
-          if (el) el.style.willChange = 'auto';
-        });
-      };
-
-      // ── Master scroll progress tracker (shared trigger) ───────────────────
-      // All scroll-driven tweens reference the same trigger section so they
-      // stay perfectly synchronized.
-      const baseScrollTriggerConfig = {
-        trigger: section,
-        start: 'top top',
-        end: 'bottom top',
-        scrub: true,
-        onEnter: enableWillChange,
-        onLeave: disableWillChange,
-        onLeaveBack: disableWillChange,
-      };
-
-      // ── Layer 1: Alley plate — slowest, subtle drift ───────────────────────
-      // translateY: 0 → 40px
-      gsap.to(l1, {
-        scrollTrigger: { ...baseScrollTriggerConfig },
-        y: 40,
-        ease: 'none',
-        force3D: true,
-      });
-
-      // ── Layer 2: Smoke — fast scroll drift + translateX ────────────────────
-      // translateY: 0 → 120px, translateX: 0 → 30px
-      gsap.to(l2, {
-        scrollTrigger: { ...baseScrollTriggerConfig },
-        y: 120,
-        x: 30,
-        ease: 'none',
-        force3D: true,
-      });
-
-      // ── Layer 3: Figure — mid scroll + subtle scale zoom ──────────────────
-      // translateY: 0 → 70px, scale: 1 → 1.05
-      gsap.to(l3, {
-        scrollTrigger: { ...baseScrollTriggerConfig },
-        y: 70,
-        scale: 1.05,
-        ease: 'none',
-        force3D: true,
-        transformOrigin: 'center bottom',
-      });
-
-      // ── Drift in Style: scroll parallax + horizontal drift ────────────────
-      // translateY: 0 → -38.5px (depth 0.35 * 110), translateX: 0 → 320px
-      // opacity: 1 → 0 by 50% scroll
-      gsap.to(drift, {
-        scrollTrigger: {
-          ...baseScrollTriggerConfig,
-          end: '50% top',
-        },
-        y: -38.5,
-        x: 320,
-        opacity: 0,
-        ease: 'power1.out',
-        force3D: true,
-      });
-
-      // ── Text layer: translateY exit + fade ────────────────────────────────
-      // Matches the existing hero's scroll-exit easing convention (power1.out)
-      gsap.to(text, {
-        scrollTrigger: {
-          ...baseScrollTriggerConfig,
-          end: '50% top',
-        },
-        y: -30,
-        opacity: 0,
-        ease: 'power1.out',
-        force3D: true,
-      });
-
-      // ── Smoke idle ambient animation (independent of scroll) ──────────────
-      // Continuous yoyo drift that runs regardless of scroll position.
-      // Created AFTER ScrollTrigger setup so it doesn't interfere.
-      const smokeTl = gsap.timeline({
-        repeat: -1,
-        yoyo: true,
-        defaults: { ease: 'sine.inOut' },
-      });
-
-      smokeTl
-        .to(l2, { y: '+=12', x: '+=8', rotation: 1, duration: 3.5 })
-        .to(l2, { opacity: 0.6, duration: 2 }, '<')
-        .to(l2, { y: '-=8', x: '-=5', rotation: -0.5, duration: 4 })
-        .to(l2, { opacity: 0.45, duration: 2 }, '<');
-
-    }, section); // ← scope gsap.context to the section element
-
-    return () => {
-      ctx.revert(); // kills all tweens + ScrollTriggers scoped to this context
-    };
-  }, []);
+  // Text layer - translateY exit + fade
+  const yText = useTransform(scrollY, [0, 500], [0, -30]);
+  const opacityText = useTransform(scrollY, [0, 500], [1, 0]);
 
   return (
     <section
-      ref={sectionRef}
       className="
         relative w-full overflow-hidden bg-black
         h-[95vh] min-h-[600px]
@@ -172,10 +40,9 @@ export default function DesktopHeroParallax() {
       aria-label="DRFTN Desktop Hero — Control The Chaos"
     >
       {/* ── LAYER 1: Full-bleed alley background plate (z-10) ─────────────── */}
-      <div
-        ref={layer1Ref}
+      <motion.div
+        style={shouldReduceMotion ? {} : { y: yL1 }}
         className="absolute inset-0 z-10 select-none pointer-events-none"
-        style={{ willChange: 'auto' }}
       >
         <Image
           src="/hero/hero-layer-1-alley.jpg"
@@ -185,23 +52,27 @@ export default function DesktopHeroParallax() {
           sizes="100vw"
           className="object-cover object-center scale-[1.08] grayscale contrast-[1.1] brightness-[0.8]"
         />
-      </div>
+      </motion.div>
 
       {/* ── LAYER 2: Smoke overlay — right-of-center (z-20) ──────────────── */}
-      {/*    mix-blend-mode: screen makes black areas transparent               */}
-      <div
-        ref={layer2Ref}
-        className="absolute z-20 select-none pointer-events-none"
-        style={{
-          // Right-of-center positioning in % so it scales with viewport
+      <motion.div
+        style={shouldReduceMotion ? {
           top: '10%',
           right: '-5%',
           width: '65%',
           height: '80%',
           opacity: 0.5,
-          mixBlendMode: 'screen',
-          willChange: 'auto',
+          mixBlendMode: 'screen' as const,
+        } : {
+          top: '10%',
+          right: '-5%',
+          width: '65%',
+          height: '80%',
+          y: yL2,
+          x: xL2,
+          mixBlendMode: 'screen' as const,
         }}
+        className="absolute z-20 select-none pointer-events-none animate-smoke-parallax"
       >
         <Image
           src="/hero/hero-layer-2-smoke.png"
@@ -211,19 +82,25 @@ export default function DesktopHeroParallax() {
           sizes="65vw"
           className="object-contain object-center"
         />
-      </div>
+      </motion.div>
 
       {/* ── LAYER 3: Hooded figure — left-of-center (z-30) ───────────────── */}
-      <div
-        ref={layer3Ref}
-        className="absolute z-30 select-none pointer-events-none"
-        style={{
+      <motion.div
+        style={shouldReduceMotion ? {
           bottom: '0',
           left: '8%',
           width: '42%',
           height: '92%',
-          willChange: 'auto',
+        } : {
+          bottom: '0',
+          left: '8%',
+          width: '42%',
+          height: '92%',
+          y: yL3,
+          scale: scaleL3,
+          transformOrigin: 'center bottom',
         }}
+        className="absolute z-30 select-none pointer-events-none"
       >
         <Image
           src="/hero/hero-layer-3-figure.png"
@@ -233,11 +110,9 @@ export default function DesktopHeroParallax() {
           sizes="42vw"
           className="object-contain object-bottom grayscale contrast-[1.1] brightness-[0.9]"
         />
-      </div>
+      </motion.div>
 
-
-
-      {/* ── Vignette & gradients (same as mobile hero) ────────────────────── */}
+      {/* ── Vignette & gradients ────────────────────── */}
       <div
         className="absolute inset-0 z-45 pointer-events-none"
         style={{
@@ -273,10 +148,9 @@ export default function DesktopHeroParallax() {
       </svg>
 
       {/* ── LAYER 5: Text / CTA (z-50) ────────────────────────────────────── */}
-      <div
-        ref={textRef}
+      <motion.div
+        style={shouldReduceMotion ? {} : { y: yText, opacity: opacityText }}
         className="relative flex flex-col z-50 pl-[7%] pr-[5%] max-w-[50%] pointer-events-none"
-        style={{ willChange: 'auto' }}
       >
         <div className="flex flex-col pointer-events-auto">
 
@@ -322,12 +196,9 @@ export default function DesktopHeroParallax() {
             <div className="relative mt-2 flex items-center" style={{ width: 'clamp(320px, 45vw, 620px)', height: 'clamp(80px, 10vw, 140px)' }}>
               {/* Ambient glow pulse */}
               {!shouldReduceMotion && (
-                <motion.div
-                  className="absolute left-8 rounded-full pointer-events-none bg-white/[0.12] blur-[50px]"
-                  style={{ width: '55%', height: '55%' }}
-                  initial={{ opacity: 0.12 }}
-                  animate={{ opacity: [0.12, 0.28, 0.12] }}
-                  transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 1.3 }}
+                <div
+                  className="absolute left-8 rounded-full pointer-events-none bg-white/[0.12] blur-[50px] animate-glow-pulse"
+                  style={{ width: '55%', height: '55%', opacity: 0.12 }}
                 />
               )}
               {shouldReduceMotion ? (
@@ -391,14 +262,12 @@ export default function DesktopHeroParallax() {
             </motion.a>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* ── DRIFT IN STYLE — side text (right side, z-50) ─────────────────── */}
-      {/*    Positioned right-of-center between figure and hand layers          */}
-      <div
-        ref={driftRef}
+      <motion.div
+        style={shouldReduceMotion ? {} : { y: yDrift, x: xDrift, opacity: opacityDrift }}
         className="absolute z-50 right-[18%] top-[30%] text-right flex flex-col items-end select-none pointer-events-none"
-        style={{ zIndex: 50 }}
       >
         {!shouldReduceMotion ? (
           <>
@@ -470,7 +339,7 @@ export default function DesktopHeroParallax() {
             </span>
           </>
         )}
-      </div>
+      </motion.div>
 
       {/* ── Telemetry anchor line (matches existing mobile hero HUD) ─────── */}
       <div className="absolute bottom-14 right-6 z-50 flex items-center gap-2">
