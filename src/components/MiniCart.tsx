@@ -141,7 +141,7 @@ export default function MiniCart() {
       {/* Backdrop */}
       <div
         onClick={() => setIsOpen(false)}
-        className={`fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm transition-opacity duration-400 ${
+        className={`fixed inset-0 z-[4000] bg-black/70 backdrop-blur-sm transition-opacity duration-400 ${
           isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
         aria-hidden="true"
@@ -157,7 +157,7 @@ export default function MiniCart() {
         onTouchStart={handleInteraction}
         onClick={handleInteraction}
         onKeyDown={handleInteraction}
-        className={`fixed top-0 right-0 h-full w-full max-w-sm z-[101] bg-brand-black flex flex-col transition-transform duration-400 ease-streetwear ${
+        className={`fixed top-0 right-0 h-full w-full max-w-sm z-[4001] bg-brand-black flex flex-col transition-transform duration-400 ease-streetwear ${
           isOpen 
             ? 'translate-x-0 border-l border-brand-graphite shadow-2xl' 
             : 'translate-x-[105%] border-l-0 shadow-none'
