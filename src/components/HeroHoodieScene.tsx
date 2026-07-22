@@ -268,7 +268,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
         });
       }
 
-      const scrubSpeed = isLowEndDevice ? 0.3 : 0.5;
+      const scrubSpeed = 1.2;
       const maskObj = { inner: 0, outer: 0 };
 
       const tl = gsap.timeline({

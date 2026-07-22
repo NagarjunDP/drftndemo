@@ -364,6 +364,15 @@ export const dbService = {
 
   async getProductBySlug(slug: string): Promise<Product | null> {
     if (typeof window === 'undefined') {
+      // 1. Check Redis-cached products list first for <1ms response time
+      try {
+        const allProducts = await this.getProducts();
+        const found = allProducts.find((p) => p.slug === slug);
+        if (found) return found;
+      } catch (err) {
+        console.warn('[dbService] getProductBySlug Redis cache lookup skipped:', err);
+      }
+
       const { db } = await import('@/db');
       const schema = await import('@/db/schema');
       const { eq, and, asc } = await import('drizzle-orm');

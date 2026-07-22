@@ -15,17 +15,16 @@ export default function SmoothScrollProvider({ children }: SmoothScrollProviderP
 
     gsap.registerPlugin(ScrollTrigger);
 
-    const isTouch = window.matchMedia('(pointer: coarse)').matches;
-
-    // Initialize Lenis smooth scroll engine
+    // Initialize Lenis smooth scroll engine with damped feel
     const lenis = new Lenis({
-      duration: isTouch ? 0.9 : 1.2,
+      duration: 1.2,
+      lerp: 0.1,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: 'vertical',
       gestureOrientation: 'vertical',
       smoothWheel: true,
       wheelMultiplier: 1.0,
-      touchMultiplier: 1.2,
+      touchMultiplier: 1.5,
     });
 
     // Synchronize Lenis scroll updates with GSAP ScrollTrigger and emit sitewide scroll events
@@ -46,7 +45,22 @@ export default function SmoothScrollProvider({ children }: SmoothScrollProviderP
     gsap.ticker.add(updateTicker);
     gsap.ticker.lagSmoothing(0);
 
+    // Smooth scroll for anchor links (#collections, #hero-scene, etc.)
+    const handleAnchorClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const anchor = target.closest('a');
+      if (anchor && anchor.hash && anchor.hash.startsWith('#')) {
+        const targetEl = document.querySelector(anchor.hash);
+        if (targetEl) {
+          e.preventDefault();
+          lenis.scrollTo(targetEl as HTMLElement, { offset: 0, duration: 1.2 });
+        }
+      }
+    };
+    document.addEventListener('click', handleAnchorClick);
+
     return () => {
+      document.removeEventListener('click', handleAnchorClick);
       gsap.ticker.remove(updateTicker);
       lenis.destroy();
     };
