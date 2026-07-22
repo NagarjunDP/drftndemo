@@ -56,7 +56,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
   const hoodieDarkRef = useRef<HTMLDivElement>(null);
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
   const textFillRef = useRef<HTMLDivElement>(null);
-  const builtDifferentFillRef = useRef<HTMLDivElement>(null);
+  const driftInFillRef = useRef<HTMLDivElement>(null);
   const headlineBlockRef = useRef<HTMLDivElement>(null);
   const marqueeColsRef = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -99,7 +99,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
     const hoodieDarkEl = hoodieDarkRef.current;
     const scrollIndEl = scrollIndicatorRef.current;
     const textFillEl = textFillRef.current;
-    const builtDiffFillEl = builtDifferentFillRef.current;
+    const driftInFillEl = driftInFillRef.current;
     const headlineBlockEl = headlineBlockRef.current;
 
     if (!containerEl || !pinnedEl || !hoodieLightEl || !hoodieDarkEl) return;
@@ -129,7 +129,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
 
     // DESKTOP TIMELINE (≥768px)
     mm.add('(min-width: 768px)', () => {
-      const initialMask = 'radial-gradient(ellipse 70% 85% at 50% 50%, black 0%, transparent 0%)';
+      const initialMask = 'radial-gradient(circle at 50% 50%, black 0%, transparent 0%)';
       gsap.set(hoodieLightEl, { opacity: 1, scale: 1, yPercent: 0 });
       gsap.set(hoodieDarkEl, {
         opacity: 1,
@@ -138,14 +138,14 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
         maskImage: initialMask,
         webkitMaskImage: initialMask,
       });
-      if (textFillEl) {
-        gsap.set(textFillEl, {
+      if (driftInFillEl) {
+        gsap.set(driftInFillEl, {
           clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
           webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
         });
       }
-      if (builtDiffFillEl) {
-        gsap.set(builtDiffFillEl, {
+      if (textFillEl) {
+        gsap.set(textFillEl, {
           clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
           webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
         });
@@ -162,22 +162,22 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
           scrub: 0.8,
           fastScrollEnd: true,
           onEnter: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, textFillEl, builtDiffFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
               willChange: 'transform, opacity, clip-path',
             });
           },
           onEnterBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, textFillEl, builtDiffFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
               willChange: 'transform, opacity, clip-path',
             });
           },
           onLeave: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, textFillEl, builtDiffFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
               clearProps: 'willChange',
             });
           },
           onLeaveBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, textFillEl, builtDiffFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
               clearProps: 'willChange',
             });
           },
@@ -192,13 +192,13 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
       });
 
       tl.to(maskObj, {
-        inner: 130,
-        outer: 160,
+        inner: 120,
+        outer: 140,
         duration: 0.6,
         ease: 'none',
         onUpdate: () => {
           if (hoodieDarkEl) {
-            const grad = `radial-gradient(ellipse 70% 85% at 50% 50%, black ${maskObj.inner}%, transparent ${maskObj.outer}%)`;
+            const grad = `radial-gradient(circle at 50% 50%, black ${maskObj.inner}%, transparent ${maskObj.outer}%)`;
             hoodieDarkEl.style.maskImage = grad;
             hoodieDarkEl.style.webkitMaskImage = grad;
           }
@@ -206,22 +206,24 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
       }, 0.0)
         .to(hoodieLightEl, { opacity: 0.15, scale: 0.95, duration: 0.6, ease: 'none' }, 0.0);
 
-      if (builtDiffFillEl) {
-        tl.to(builtDiffFillEl, {
+      // 1. DRIFT IN Fill (0.0 → 0.40)
+      if (driftInFillEl) {
+        tl.to(driftInFillEl, {
           clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
           webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          duration: 0.45,
+          duration: 0.40,
           ease: 'none',
         }, 0.0);
       }
 
+      // 2. STYLE. Fill (0.25 → 0.70)
       if (textFillEl) {
         tl.to(textFillEl, {
           clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
           webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          duration: 0.70,
+          duration: 0.45,
           ease: 'none',
-        }, 0.0);
+        }, 0.25);
       }
 
       if (headlineBlockEl) {
@@ -246,7 +248,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
 
     // MOBILE TIMELINE (<768px)
     mm.add('(max-width: 767px)', () => {
-      const initialMask = 'radial-gradient(ellipse 70% 85% at 50% 50%, black 0%, transparent 0%)';
+      const initialMask = 'radial-gradient(circle at 50% 50%, black 0%, transparent 0%)';
       gsap.set(hoodieLightEl, { opacity: 1, scale: 1, yPercent: 0 });
       gsap.set(hoodieDarkEl, {
         opacity: 1,
@@ -255,20 +257,19 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
         maskImage: initialMask,
         webkitMaskImage: initialMask,
       });
+      if (driftInFillEl) {
+        gsap.set(driftInFillEl, {
+          clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
+          webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
+        });
+      }
       if (textFillEl) {
         gsap.set(textFillEl, {
           clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
           webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
         });
       }
-      if (builtDiffFillEl) {
-        gsap.set(builtDiffFillEl, {
-          clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
-          webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
-        });
-      }
 
-      const scrubSpeed = 1.2;
       const maskObj = { inner: 0, outer: 0 };
 
       const tl = gsap.timeline({
@@ -277,25 +278,25 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
           start: 'top top',
           end: 'bottom bottom',
           pin: pinnedEl,
-          scrub: scrubSpeed,
+          scrub: 0.7,
           fastScrollEnd: true,
           onEnter: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, textFillEl, builtDiffFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
               willChange: 'transform, opacity, clip-path',
             });
           },
           onEnterBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, textFillEl, builtDiffFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
               willChange: 'transform, opacity, clip-path',
             });
           },
           onLeave: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, textFillEl, builtDiffFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
               clearProps: 'willChange',
             });
           },
           onLeaveBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, textFillEl, builtDiffFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
               clearProps: 'willChange',
             });
           },
@@ -310,13 +311,13 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
       });
 
       tl.to(maskObj, {
-        inner: 130,
-        outer: 160,
+        inner: 120,
+        outer: 140,
         duration: 0.6,
         ease: 'none',
         onUpdate: () => {
           if (hoodieDarkEl) {
-            const grad = `radial-gradient(ellipse 70% 85% at 50% 50%, black ${maskObj.inner}%, transparent ${maskObj.outer}%)`;
+            const grad = `radial-gradient(circle at 50% 50%, black ${maskObj.inner}%, transparent ${maskObj.outer}%)`;
             hoodieDarkEl.style.maskImage = grad;
             hoodieDarkEl.style.webkitMaskImage = grad;
           }
@@ -324,22 +325,24 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
       }, 0.0)
         .to(hoodieLightEl, { opacity: 0.15, scale: 0.96, duration: 0.6, ease: 'none' }, 0.0);
 
-      if (builtDiffFillEl) {
-        tl.to(builtDiffFillEl, {
+      // 1. DRIFT IN Fill (0.0 → 0.40)
+      if (driftInFillEl) {
+        tl.to(driftInFillEl, {
           clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
           webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          duration: 0.45,
+          duration: 0.40,
           ease: 'none',
         }, 0.0);
       }
 
+      // 2. STYLE. Fill (0.25 → 0.70)
       if (textFillEl) {
         tl.to(textFillEl, {
           clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
           webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          duration: 0.7,
+          duration: 0.45,
           ease: 'none',
-        }, 0.0);
+        }, 0.25);
       }
 
       if (headlineBlockEl) {
@@ -426,14 +429,14 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
                   fill
                   priority
                   sizes="(max-width: 768px) 88vw, 580px"
-                  className="object-contain filter drop-shadow-[0_24px_60px_rgba(0,0,0,0.9)]"
+                  className="object-contain filter drop-shadow-[0_12px_32px_rgba(0,0,0,0.5)]"
                 />
               </div>
 
               {/* Hoodie 2: Dark / Stealth Edition */}
               <div
                 ref={hoodieDarkRef}
-                className="absolute inset-0 w-full h-full flex items-center justify-center"
+                className="absolute inset-0 w-full h-full flex items-center justify-center bg-transparent"
               >
                 <Image
                   src="/hero/hoodie-dark-mobile.png"
@@ -441,7 +444,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
                   fill
                   priority
                   sizes="(max-width: 768px) 88vw, 580px"
-                  className="object-contain filter drop-shadow-[0_24px_60px_rgba(0,0,0,0.95)]"
+                  className="object-contain"
                 />
               </div>
             </div>
@@ -451,43 +454,40 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
           <div className="relative z-20 w-full max-w-screen-2xl mx-auto flex flex-col md:flex-row items-stretch md:items-end justify-between gap-3 md:gap-6">
             {/* Copy & Headline Block */}
             <div ref={headlineBlockRef} className="max-w-2xl text-left space-y-1 sm:space-y-2">
-              {/* ── OVERSIZED DISPLAY HEADLINE: "DRIFT IN STYLE." ── */}
-              <div className="flex flex-col space-y-0 text-left">
-                {/* "BUILT DIFFERENT" Badge with Top-to-Bottom White Fill Wipe */}
-                <div className="relative inline-block overflow-hidden py-0.5 mb-1 select-none">
-                  <span className="text-[11px] sm:text-xs md:text-sm font-mono font-bold uppercase tracking-[0.22em] text-stroke-hollow block">
-                    {"// 01 • BUILT DIFFERENT"}
-                  </span>
+              {/* ── OVERSIZED EDITORIAL HEADLINE: "DRIFT IN" + "STYLE." (Sequential Hollow-to-Solid Fill) ── */}
+              <div className="flex flex-col space-y-0.5 text-left select-none">
+                {/* Line 1: DRIFT IN (Hollow stroke underlay + Solid white fill overlay scrubbed on scroll) */}
+                <div className="relative inline-block overflow-hidden py-0.5">
+                  <h1 className="text-3xl sm:text-5xl md:text-6xl font-display font-black uppercase tracking-tight text-stroke-hollow leading-tight block">
+                    DRIFT <span className="italic font-serif font-normal text-stroke-hollow">IN</span>
+                  </h1>
 
                   <div
-                    ref={builtDifferentFillRef}
+                    ref={driftInFillRef}
                     className="absolute inset-0 pointer-events-none z-10 py-0.5"
                     style={{ clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)' }}
                   >
-                    <span className="text-[11px] sm:text-xs md:text-sm font-mono font-bold uppercase tracking-[0.22em] text-white block">
-                      {"// 01 • BUILT DIFFERENT"}
-                    </span>
+                    <h1 className="text-3xl sm:text-5xl md:text-6xl font-display font-black uppercase tracking-tight text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.85)] leading-tight block">
+                      DRIFT <span className="italic font-serif font-normal text-white/90">IN</span>
+                    </h1>
                   </div>
                 </div>
 
-                <h1 className="text-4xl sm:text-6xl md:text-8xl font-display font-black uppercase tracking-tighter text-white leading-[0.88] drop-shadow-md">
-                  DRIFT IN
-                </h1>
+                {/* Sleek monochrome accent divider line */}
+                <div className="w-12 sm:w-20 h-[1px] bg-white/25 my-0.5" />
 
-                {/* Mixed stroke & scroll-driven fill overlay */}
+                {/* Line 2: STYLE. (1.4x larger scale disparity + sequential scroll fill overlay) */}
                 <div className="relative inline-block overflow-hidden py-0.5">
-                  {/* Underlay: hollow outline stroke */}
-                  <span className="text-4xl sm:text-6xl md:text-8xl font-display font-black uppercase tracking-tighter text-stroke-hollow leading-[0.88] block">
+                  <span className="text-5xl sm:text-7xl md:text-9xl font-display font-black uppercase tracking-tight text-stroke-hollow leading-none block">
                     STYLE.
                   </span>
 
-                  {/* Overlay: solid white fill revealed on scroll scrub (Top-to-Bottom Wipe) */}
                   <div
                     ref={textFillRef}
                     className="absolute inset-0 pointer-events-none z-10 py-0.5"
                     style={{ clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)' }}
                   >
-                    <span className="text-4xl sm:text-6xl md:text-8xl font-display font-black uppercase tracking-tighter text-white leading-[0.88] block">
+                    <span className="text-5xl sm:text-7xl md:text-9xl font-display font-black uppercase tracking-tight text-white drop-shadow-[0_12px_30px_rgba(0,0,0,0.95)] leading-none block">
                       STYLE.
                     </span>
                   </div>

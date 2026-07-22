@@ -236,10 +236,8 @@ export default function MobileNavbar() {
         onClick={() => setActivePanel(null)}
       />
 
-      {/* ── FLOATING MORPHING CAPSULE ── */}
-      <div className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-[2500] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden transition-all duration-300 ease-out ${
-        isVisible || isOpen ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0'
-      }`}>
+      {/* ── FLOATING MORPHING CAPSULE (Always visible on mobile) ── */}
+      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[2500] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden transition-all duration-300 ease-out translate-y-0 opacity-100">
         <motion.div
           layout
           className={`backdrop-blur-[24px] saturate-[160%] overflow-hidden flex flex-col justify-between pointer-events-auto transition-colors duration-300 ${
