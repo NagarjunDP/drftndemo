@@ -38,6 +38,38 @@ export default function MobileNavbar() {
   const [searchRotate, setSearchRotate] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Track PDP sticky Add to Bag info to morph floating capsule in-place
+  const [pdpInfo, setPdpInfo] = useState<{
+    active: boolean;
+    price: number;
+    size: string;
+    isAdding: boolean;
+    isOutOfStock: boolean;
+  }>({
+    active: false,
+    price: 0,
+    size: '',
+    isAdding: false,
+    isOutOfStock: false,
+  });
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const customEv = e as CustomEvent<{
+        active: boolean;
+        price: number;
+        size: string;
+        isAdding: boolean;
+        isOutOfStock: boolean;
+      }>;
+      if (customEv.detail) {
+        setPdpInfo(customEv.detail);
+      }
+    };
+    window.addEventListener('drftn-pdp-info', handler);
+    return () => window.removeEventListener('drftn-pdp-info', handler);
+  }, []);
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const isOpen = activePanel !== null;
 
@@ -78,6 +110,65 @@ export default function MobileNavbar() {
       searchInputRef.current.focus();
     }
   }, [activePanel, isSettled]);
+
+  // Smart Scroll Auto-Hide Detection (Lenis + Native Scroll Synced)
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const processScroll = (currentY: number, direction?: number) => {
+      if (currentY < 60 || isOpen) {
+        setIsVisible(true);
+        lastScrollY.current = currentY;
+        return;
+      }
+
+      if (direction !== undefined) {
+        if (direction > 0) {
+          setIsVisible(false); // Scroll down -> Hide bar
+        } else if (direction < 0) {
+          setIsVisible(true); // Scroll up -> Reveal bar
+        }
+      } else {
+        const diff = currentY - lastScrollY.current;
+        if (diff > 5) {
+          setIsVisible(false);
+        } else if (diff < -5) {
+          setIsVisible(true);
+        }
+      }
+
+      lastScrollY.current = currentY;
+
+      // Reveal on scroll pause (600ms)
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setIsVisible(true);
+      }, 600);
+    };
+
+    const handleNativeScroll = () => {
+      processScroll(window.scrollY || document.documentElement.scrollTop || 0);
+    };
+
+    const handleCustomScroll = (e: Event) => {
+      const customEv = e as CustomEvent<{ scrollY: number; direction: number }>;
+      if (customEv.detail) {
+        processScroll(customEv.detail.scrollY, customEv.detail.direction);
+      }
+    };
+
+    window.addEventListener('scroll', handleNativeScroll, { passive: true });
+    window.addEventListener('drftn-scroll', handleCustomScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleNativeScroll);
+      window.removeEventListener('drftn-scroll', handleCustomScroll);
+      clearTimeout(timeoutId);
+    };
+  }, [isOpen]);
 
   // Lock scrolling when floating panel is open
   useEffect(() => {
@@ -146,11 +237,17 @@ export default function MobileNavbar() {
       />
 
       {/* ── FLOATING MORPHING CAPSULE ── */}
-      <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[2500] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden">
+      <div className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-[2500] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden transition-all duration-300 ease-out ${
+        isVisible || isOpen ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0'
+      }`}>
         <motion.div
           layout
           className={`backdrop-blur-[24px] saturate-[160%] overflow-hidden flex flex-col justify-between pointer-events-auto transition-colors duration-300 ${
-            isOpen ? 'bg-[#121212]/95 w-full h-[60vh] rounded-[28px] p-0' : 'bg-[#2a2a2a]/90 w-[260px] h-[52px] rounded-full p-1.5'
+            isOpen
+              ? 'bg-[#121212]/95 w-full h-[60vh] rounded-[28px] p-0'
+              : pdpInfo.active
+              ? 'bg-[#1a1a1a]/95 w-[330px] h-[52px] rounded-full p-1.5'
+              : 'bg-[#2a2a2a]/90 w-[260px] h-[52px] rounded-full p-1.5'
           }`}
           style={{
             border: '1px solid rgba(255,255,255,0.08)',
@@ -398,67 +495,113 @@ export default function MobileNavbar() {
               )}
             </AnimatePresence>
 
-            {/* Right Side: MENU | SEARCH Tabs */}
+            {/* Right Side: MENU | SEARCH Tabs or Morphed PDP ADD TO BAG Pill */}
             <div className={`flex items-center gap-2 ${isOpen ? '' : 'w-full'}`}>
-              <button
-                onClick={() => handlePillClick('menu')}
-                className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10.5px] font-display font-extrabold tracking-[0.18em] uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
-                  activePanel === 'search'
-                    ? 'bg-[#121212]/40 border border-white/[0.14] text-white/80 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
-                    : 'bg-white text-black shadow-[0_4px_16px_rgba(255,255,255,0.25)]'
-                }`}
-              >
-                {/* Morphing Hamburger Icon */}
-                <svg 
-                  width="12" 
-                  height="12" 
-                  viewBox="0 0 14 14" 
-                  className="flex-shrink-0 transition-colors duration-200" 
-                  style={{ stroke: activePanel === 'search' ? '#ffffff' : '#000000' }}
-                >
-                  <motion.path
-                    fill="transparent"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    d="M 2 3 L 12 3"
-                    animate={activePanel === 'menu' ? { d: 'M 2 2 L 12 12' } : { d: 'M 2 3 L 12 3' }}
-                    transition={{ duration: 0.25 }}
-                  />
-                  <motion.path
-                    fill="transparent"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    d="M 2 7 L 12 7"
-                    animate={activePanel === 'menu' ? { opacity: 0 } : { opacity: 1 }}
-                    transition={{ duration: 0.25 }}
-                  />
-                  <motion.path
-                    fill="transparent"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    d="M 2 11 L 12 11"
-                    animate={activePanel === 'menu' ? { d: 'M 2 12 L 12 2' } : { d: 'M 2 11 L 12 11' }}
-                    transition={{ duration: 0.25 }}
-                  />
-                </svg>
-                <span>MENU</span>
-              </button>
+              {pdpInfo.active && !isOpen ? (
+                <div className="w-full flex items-center justify-between gap-1.5 px-0.5 pointer-events-auto">
+                  {/* Left: Compact Menu Icon */}
+                  <button
+                    onClick={() => handlePillClick('menu')}
+                    className="w-10 h-10 rounded-full bg-[#121212]/60 border border-white/10 text-white flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                    aria-label="Menu"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 14 14" stroke="#ffffff" fill="none">
+                      <path strokeWidth="1.8" strokeLinecap="round" d="M 2 3 L 12 3" />
+                      <path strokeWidth="1.8" strokeLinecap="round" d="M 2 7 L 12 7" />
+                      <path strokeWidth="1.8" strokeLinecap="round" d="M 2 11 L 12 11" />
+                    </svg>
+                  </button>
 
-              <button
-                onClick={() => handlePillClick('search')}
-                className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10.5px] font-display font-extrabold tracking-[0.18em] uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
-                  activePanel === 'search'
-                    ? 'bg-white text-black shadow-[0_4px_16px_rgba(255,255,255,0.25)]'
-                    : 'bg-[#121212]/40 border border-white/[0.14] text-zinc-300 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
-                }`}
-              >
-                <Search 
-                  className={`w-3.5 h-3.5 stroke-[2.2] flex-shrink-0 transition-colors duration-200 ${
-                    activePanel === 'search' ? 'text-black' : 'text-white'
-                  }`} 
-                />
-                <span>SEARCH</span>
-              </button>
+                  {/* Right: Sleek Morphed Add to Bag Action Button */}
+                  <button
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('drftn-trigger-add-to-cart'));
+                    }}
+                    disabled={pdpInfo.isAdding || pdpInfo.isOutOfStock}
+                    className="flex-1 h-10 rounded-full bg-white text-black px-4 flex items-center justify-between text-[10.5px] font-display font-extrabold tracking-wider uppercase active:scale-95 transition-all shadow-[0_4px_16px_rgba(255,255,255,0.3)] disabled:opacity-50 cursor-pointer"
+                  >
+                    <span className="font-mono text-[10px] text-zinc-700 font-bold">
+                      ₹{pdpInfo.price}{pdpInfo.size ? ` · ${pdpInfo.size}` : ''}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-black font-extrabold">
+                      {pdpInfo.isOutOfStock ? (
+                        'OUT OF STOCK'
+                      ) : pdpInfo.isAdding ? (
+                        <span className="text-black font-extrabold flex items-center gap-1">
+                          <span>✓</span> ADDED
+                        </span>
+                      ) : (
+                        <>
+                          <ShoppingBag className="w-3.5 h-3.5 text-black stroke-[2.2]" />
+                          <span>ADD TO BAG</span>
+                        </>
+                      )}
+                    </span>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handlePillClick('menu')}
+                    className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10.5px] font-display font-extrabold tracking-[0.18em] uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
+                      activePanel === 'search'
+                        ? 'bg-[#121212]/40 border border-white/[0.14] text-white/80 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
+                        : 'bg-white text-black shadow-[0_4px_16px_rgba(255,255,255,0.25)]'
+                    }`}
+                  >
+                    {/* Morphing Hamburger Icon */}
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 14 14"
+                      className="flex-shrink-0 transition-colors duration-200"
+                      style={{ stroke: activePanel === 'search' ? '#ffffff' : '#000000' }}
+                    >
+                      <motion.path
+                        fill="transparent"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        d="M 2 3 L 12 3"
+                        animate={activePanel === 'menu' ? { d: 'M 2 2 L 12 12' } : { d: 'M 2 3 L 12 3' }}
+                        transition={{ duration: 0.25 }}
+                      />
+                      <motion.path
+                        fill="transparent"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        d="M 2 7 L 12 7"
+                        animate={activePanel === 'menu' ? { opacity: 0 } : { opacity: 1 }}
+                        transition={{ duration: 0.25 }}
+                      />
+                      <motion.path
+                        fill="transparent"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        d="M 2 11 L 12 11"
+                        animate={activePanel === 'menu' ? { d: 'M 2 12 L 12 2' } : { d: 'M 2 11 L 12 11' }}
+                        transition={{ duration: 0.25 }}
+                      />
+                    </svg>
+                    <span>MENU</span>
+                  </button>
+
+                  <button
+                    onClick={() => handlePillClick('search')}
+                    className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10.5px] font-display font-extrabold tracking-[0.18em] uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
+                      activePanel === 'search'
+                        ? 'bg-white text-black shadow-[0_4px_16px_rgba(255,255,255,0.25)]'
+                        : 'bg-[#121212]/40 border border-white/[0.14] text-zinc-300 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
+                    }`}
+                  >
+                    <Search
+                      className={`w-3.5 h-3.5 stroke-[2.2] flex-shrink-0 transition-colors duration-200 ${
+                        activePanel === 'search' ? 'text-black' : 'text-white'
+                      }`}
+                    />
+                    <span>SEARCH</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </motion.div>

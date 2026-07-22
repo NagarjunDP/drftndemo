@@ -3,7 +3,8 @@ import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
 
-export const dynamic = 'force-dynamic';
+// Cache categories for 60s — they rarely change
+export const revalidate = 60;
 
 export async function GET() {
   try {

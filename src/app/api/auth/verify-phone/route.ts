@@ -39,9 +39,21 @@ export async function POST(request: Request) {
     let verifiedPhone: string | null = null;
 
     if (accessToken.startsWith('mock_token_')) {
-      // Dev/staging mock support
-      const mockPhone = accessToken.replace('mock_token_', '');
-      verifiedPhone = formatPhoneToDatabase(mockPhone);
+      // Mock OTP bypass — only allowed when explicitly enabled for local dev.
+      // ENABLE_MOCK_OTP must be 'true' AND we must not be in production.
+      const isMockAllowed =
+        process.env.ENABLE_MOCK_OTP === 'true' &&
+        process.env.NODE_ENV !== 'production';
+
+      if (isMockAllowed) {
+        const mockPhone = accessToken.replace('mock_token_', '');
+        verifiedPhone = formatPhoneToDatabase(mockPhone);
+      } else {
+        return NextResponse.json(
+          { error: 'Invalid verification token' },
+          { status: 400 }
+        );
+      }
     } else {
       // Verify with phone.email API
       const formData = new FormData();

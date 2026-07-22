@@ -14,6 +14,10 @@ export interface Product {
   stock_quantity: Record<string, number>; // e.g., { XS: 10, S: 5 }
   is_featured: boolean;
   is_active: boolean;
+  weight_grams: number;
+  length_cm?: number | null;
+  breadth_cm?: number | null;
+  height_cm?: number | null;
   created_at?: string;
 }
 
@@ -58,6 +62,9 @@ export interface Order {
   tracking_number?: string;
   courier_partner?: string;
   shiprocket_order_id?: string | null;
+  courier_provider?: 'borzo' | 'shiprocket' | null;
+  zone?: 'BLR_EXPRESS' | 'STANDARD' | null;
+  invoice_number?: string | null;
   payment_type?: 'prepaid' | 'cod_with_deposit';
   deposit_amount?: number | null;
   remaining_amount?: number | null;
@@ -87,6 +94,12 @@ export interface StoreSettings {
   razorpay_key_id: string;
   razorpay_key_secret: string;
   nimbuspost_api_key: string;
+  blr_pincode_ranges: string;
+  borzo_surcharge: number;
+  borzo_free_threshold: number;
+  borzo_cutoff_start: string;
+  borzo_cutoff_end: string;
+  borzo_pickup_address: string;
 }
 
 export interface CartItem {

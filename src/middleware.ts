@@ -31,7 +31,7 @@ const isAdminRoute = createRouteMatcher(['/admin(.*)', '/api/admin(.*)']);
 
 export default clerkMiddleware(async (auth, request) => {
   const { pathname } = request.nextUrl;
-  const secretPath = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || '/hq-drftn-secure-portal-2026-9f8z';
+  const secretPath = process.env.ADMIN_SECRET_PATH || '/hq-drftn-secure-portal-2026-9f8z';
 
   // Pass Clerk's OAuth callback through immediately — any middleware check here
   // would break the token-exchange step and cause a 404.
@@ -87,6 +87,10 @@ export default clerkMiddleware(async (auth, request) => {
     
     if (pathname.startsWith('/api/orders/track')) {
       limit = 10;
+      windowMs = 600000; // 10 minutes
+    } else if (pathname.startsWith('/api/shipping/serviceability')) {
+      limit = 5;
+      windowMs = 60000;
     } else if (pathname.startsWith('/api/discount/validate')) {
       limit = 5;
     } else if (pathname.startsWith('/api/orders/verify-payment')) {

@@ -19,7 +19,7 @@ export default function TrackOrderPage() {
   const [orderNumber, setOrderNumber] = useState('');
   const [contact, setContact] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<any | null>(null);
 
   const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +51,25 @@ export default function TrackOrderPage() {
     return STATUS_STAGES.findIndex((stage) => stage.id === status);
   };
 
+  // Real-time polling updates when the tracking dashboard is open
+  React.useEffect(() => {
+    if (!order) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/orders/track?orderNumber=${encodeURIComponent(order.order_number)}&phone=${encodeURIComponent(contact)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setOrder(data);
+        }
+      } catch (err) {
+        console.error('Real-time tracking status check error:', err);
+      }
+    }, 10000); // Poll every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [order?.order_number, contact]);
+
   return (
     <div className="max-w-4xl mx-auto px-4 md:px-8 py-16 min-h-[70vh]">
       <div className="text-center mb-12">
@@ -69,7 +88,7 @@ export default function TrackOrderPage() {
               <label className="text-xs uppercase tracking-wider text-zinc-500 font-bold block">Order Number</label>
               <input
                 type="text"
-                placeholder="e.g. DRFTN-1001"
+                placeholder="e.g. DRFTN-7K9M2P"
                 value={orderNumber}
                 onChange={(e) => setOrderNumber(e.target.value)}
                 className="w-full bg-zinc-900/80 border border-zinc-800 text-brand-offwhite px-4 py-3 focus:outline-none focus:border-white transition-colors"
@@ -113,6 +132,24 @@ export default function TrackOrderPage() {
               <p className="text-xl text-brand-offwhite font-mono font-bold">₹{(order.total / 100).toFixed(2)}</p>
             </div>
           </div>
+
+          {order.tracking_history && (
+            <div className="mb-8 p-6 border border-zinc-800 bg-zinc-950/40 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-zinc-500 font-bold">Courier Tracking Status</p>
+                <p className="text-lg font-bold text-white mt-1">{order.tracking_history.status_label}</p>
+                {order.tracking_number && (
+                  <p className="text-xs text-zinc-400 mt-1 font-mono">Tracking Number: {order.tracking_number} ({order.courier_partner || 'Courier'})</p>
+                )}
+              </div>
+              <div className="sm:text-right">
+                <p className="text-xs uppercase tracking-wider text-zinc-500 font-bold">Last Status Update</p>
+                <p className="text-sm text-zinc-400 mt-1">
+                  {new Date(order.tracking_history.updated_at).toLocaleString()}
+                </p>
+              </div>
+            </div>
+          )}
 
           {order.order_status === 'cancelled' ? (
             <div className="bg-zinc-950 border border-zinc-800 text-zinc-400 p-6 text-center font-bold tracking-widest uppercase text-sm mb-10">
@@ -176,7 +213,7 @@ export default function TrackOrderPage() {
               Items in Shipment
             </h3>
             <div className="space-y-4">
-              {order.items.map((item, idx) => (
+              {order.items.map((item: any, idx: number) => (
                 <div key={`${item.id}-${idx}`} className="flex items-center gap-4">
                   <div className="w-12 h-16 bg-zinc-900 flex-shrink-0">
                     <img src={item.image} alt={item.name} className="w-full h-full object-cover" />

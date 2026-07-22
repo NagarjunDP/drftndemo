@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { dbService } from '@/lib/db';
 
-export const dynamic = 'force-dynamic';
+// Cache products for 60s at the CDN/edge — products don't change on every request.
+// Admin mutations should call revalidatePath('/') / revalidateTag to bust this.
+export const revalidate = 60;
 
 export async function GET(request: Request) {
   try {
@@ -13,7 +15,15 @@ export async function GET(request: Request) {
       if (!product) {
         return NextResponse.json({ error: 'Product not found' }, { status: 404 });
       }
-      return NextResponse.json({ product });
+      return NextResponse.json(
+        { product },
+        {
+          headers: {
+            // Cache individual product responses for 60s, stale-while-revalidate for 5min
+            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+          },
+        }
+      );
     }
 
     const products = await dbService.getProducts();
@@ -21,7 +31,8 @@ export async function GET(request: Request) {
       { products },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=3600',
+          // Cache product list for 60s, serve stale for up to 1h while revalidating
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=3600',
         },
       }
     );

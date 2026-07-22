@@ -1,5 +1,45 @@
 import { Product, Category, Order, DiscountCode, StoreSettings, ContactSubmission } from '../types';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Redis-backed product cache
+//
+// Replaces the previous per-process in-memory Map. On multi-instance serverless
+// deployments (Vercel) each function cold-start had its own isolated cache,
+// so a price/stock change in instance A was invisible to instance B for up to 60s.
+// Redis is shared across all instances — one invalidation busts all of them.
+// ─────────────────────────────────────────────────────────────────────────────
+const PRODUCT_CACHE_KEY = 'dbservice:products:active:v1';
+const PRODUCT_CACHE_TTL_SEC = 60;
+
+async function getProductsFromRedisCache(): Promise<any | null> {
+  try {
+    const { redis } = await import('@/lib/redis');
+    const raw = await redis.get(PRODUCT_CACHE_KEY);
+    if (!raw) return null;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return null; // Redis miss/error → fall through to Neon
+  }
+}
+
+async function setProductsInRedisCache(data: any): Promise<void> {
+  try {
+    const { redis } = await import('@/lib/redis');
+    await redis.set(PRODUCT_CACHE_KEY, JSON.stringify(data), { ex: PRODUCT_CACHE_TTL_SEC });
+  } catch (err) {
+    console.warn('[ProductCache] Failed to write Redis cache:', err);
+  }
+}
+
+export async function clearProductCache(): Promise<void> {
+  try {
+    const { redis } = await import('@/lib/redis');
+    await redis.del(PRODUCT_CACHE_KEY);
+  } catch (err) {
+    console.warn('[ProductCache] Failed to clear Redis cache:', err);
+  }
+}
+
 export const dbService = {
   // -----------------------------------------------------------------------
   // CATEGORIES
@@ -182,6 +222,10 @@ export const dbService = {
   // -----------------------------------------------------------------------
   async getProducts(): Promise<Product[]> {
     if (typeof window === 'undefined') {
+      // ── Redis cache check ─────────────────────────────────────────────────
+      const cachedData = await getProductsFromRedisCache();
+      if (cachedData) return cachedData;
+
       const { db } = await import('@/db');
       const schema = await import('@/db/schema');
       const { eq, desc, inArray, asc } = await import('drizzle-orm');
@@ -192,7 +236,10 @@ export const dbService = {
         .where(eq(schema.products.is_active, true))
         .orderBy(desc(schema.products.created_at));
       
-      if (results.length === 0) return [];
+      if (results.length === 0) {
+        await setProductsInRedisCache([]);
+        return [];
+      }
 
       const productIds = results.map((r: any) => r.id);
       const allImages = await db
@@ -216,7 +263,7 @@ export const dbService = {
         return acc;
       }, {} as Record<string, string>);
       
-      return results.map((r: any) => ({
+      const formatted = results.map((r: any) => ({
         id: r.id,
         name: r.name,
         slug: r.slug,
@@ -232,8 +279,16 @@ export const dbService = {
         stock_quantity: r.stock_quantity,
         is_featured: r.is_featured,
         is_active: r.is_active,
+        weight_grams: r.weight_grams,
+        length_cm: r.length_cm,
+        breadth_cm: r.breadth_cm,
+        height_cm: r.height_cm,
         created_at: r.created_at.toISOString(),
       }));
+
+      // ── Write Redis cache ─────────────────────────────────────────────
+      await setProductsInRedisCache(formatted);
+      return formatted;
     } else {
       const res = await fetch('/api/products');
       if (!res.ok) throw new Error('Failed to fetch products');
@@ -293,6 +348,10 @@ export const dbService = {
         stock_quantity: r.stock_quantity,
         is_featured: r.is_featured,
         is_active: r.is_active,
+        weight_grams: r.weight_grams,
+        length_cm: r.length_cm,
+        breadth_cm: r.breadth_cm,
+        height_cm: r.height_cm,
         created_at: r.created_at.toISOString(),
       }));
     } else {
@@ -353,6 +412,10 @@ export const dbService = {
         stock_quantity: prod.stock_quantity,
         is_featured: prod.is_featured,
         is_active: prod.is_active,
+        weight_grams: prod.weight_grams,
+        length_cm: prod.length_cm,
+        breadth_cm: prod.breadth_cm,
+        height_cm: prod.height_cm,
         created_at: prod.created_at.toISOString(),
       };
     } else {
@@ -384,6 +447,10 @@ export const dbService = {
           stock_quantity: prod.stock_quantity,
           is_featured: prod.is_featured !== undefined ? prod.is_featured : false,
           is_active: prod.is_active !== undefined ? prod.is_active : true,
+          weight_grams: prod.weight_grams,
+          length_cm: prod.length_cm || null,
+          breadth_cm: prod.breadth_cm || null,
+          height_cm: prod.height_cm || null,
         })
         .returning();
 
@@ -408,6 +475,9 @@ export const dbService = {
         console.error('Failed to seed Redis stock gate on createProduct:', redisErr);
       }
 
+      // Bust the shared product cache so all instances see the new product
+      await clearProductCache();
+
       return {
         id: inserted.id,
         name: inserted.name,
@@ -423,6 +493,10 @@ export const dbService = {
         stock_quantity: inserted.stock_quantity,
         is_featured: inserted.is_featured,
         is_active: inserted.is_active,
+        weight_grams: inserted.weight_grams,
+        length_cm: inserted.length_cm,
+        breadth_cm: inserted.breadth_cm,
+        height_cm: inserted.height_cm,
         created_at: inserted.created_at.toISOString(),
       };
     } else {
@@ -473,6 +547,8 @@ export const dbService = {
         }
       }
 
+      // Bust the shared product cache so all instances see updated price/stock
+      await clearProductCache();
 
       // Check if stock went from 0 to >0
       if (oldProduct && updates.stock_quantity) {
@@ -557,6 +633,10 @@ export const dbService = {
         stock_quantity: updated.stock_quantity,
         is_featured: updated.is_featured,
         is_active: updated.is_active,
+        weight_grams: updated.weight_grams,
+        length_cm: updated.length_cm,
+        breadth_cm: updated.breadth_cm,
+        height_cm: updated.height_cm,
         created_at: updated.created_at.toISOString(),
       };
     } else {
@@ -581,7 +661,10 @@ export const dbService = {
         .delete(schema.products)
         .where(eq(schema.products.id, id))
         .returning();
-      
+
+      // Bust the shared product cache so the deleted product disappears immediately
+      await clearProductCache();
+
       return deleted.length > 0;
     } else {
       const res = await fetch(`/api/admin/products?id=${id}`, {
@@ -626,6 +709,9 @@ export const dbService = {
         pickup_code: r.pickup_code || null,
         tracking_number: r.tracking_number || undefined,
         courier_partner: r.courier_partner || undefined,
+        courier_provider: r.courier_provider || null,
+        zone: r.zone || null,
+        invoice_number: r.invoice_number || null,
         payment_type: r.payment_type || 'prepaid',
         deposit_amount: r.deposit_amount || null,
         remaining_amount: r.remaining_amount || null,
@@ -674,6 +760,9 @@ export const dbService = {
         pickup_code: r.pickup_code || null,
         tracking_number: r.tracking_number || undefined,
         courier_partner: r.courier_partner || undefined,
+        courier_provider: r.courier_provider || null,
+        zone: r.zone || null,
+        invoice_number: r.invoice_number || null,
         payment_type: r.payment_type || 'prepaid',
         deposit_amount: r.deposit_amount || null,
         remaining_amount: r.remaining_amount || null,
@@ -769,30 +858,57 @@ export const dbService = {
       const { count } = await import('drizzle-orm');
       
       const resultOrder = await db.transaction(async (tx: any) => {
-        const [countResult] = await tx.select({ val: count() }).from(schema.orders);
-        const nextNum = 1001 + Number(countResult.val);
-        const orderNumber = `DRFTN-${nextNum}`;
+        const crypto = await import('crypto');
+        const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+        let retries = 5;
+        let insertedOrder: any = null;
 
-        const [newOrder] = await tx.insert(schema.orders).values({
-          order_number: orderNumber,
-          customer_name: order.customer_name,
-          customer_email: order.customer_email,
-          customer_phone: order.customer_phone,
-          shipping_address: order.shipping_address,
-          items: order.items,
-          subtotal: order.subtotal,
-          shipping_charge: order.shipping_charge,
-          discount_code: order.discount_code,
-          discount_amount: order.discount_amount,
-          total: order.total,
-          payment_status: order.payment_status,
-          payment_id: order.payment_id,
-          order_status: order.order_status || 'placed',
-          tracking_number: order.tracking_number,
-          courier_partner: order.courier_partner,
-        }).returning();
+        while (retries > 0) {
+          const bytes = crypto.randomBytes(6);
+          let randomStr = '';
+          for (let i = 0; i < 6; i++) {
+            randomStr += chars[bytes[i] % chars.length];
+          }
+          const orderNumber = `DRFTN-${randomStr}`;
 
-        return newOrder;
+          try {
+            const [newOrder] = await tx.insert(schema.orders).values({
+              order_number: orderNumber,
+              customer_name: order.customer_name,
+              customer_email: order.customer_email,
+              customer_phone: order.customer_phone,
+              shipping_address: order.shipping_address,
+              items: order.items,
+              subtotal: order.subtotal,
+              shipping_charge: order.shipping_charge,
+              discount_code: order.discount_code,
+              discount_amount: order.discount_amount,
+              total: order.total,
+              payment_status: order.payment_status,
+              payment_id: order.payment_id,
+              order_status: order.order_status || 'placed',
+              tracking_number: order.tracking_number,
+              courier_partner: order.courier_partner,
+            }).returning();
+
+            insertedOrder = newOrder;
+            break; // Insertion successful
+          } catch (err: any) {
+            const isUniqueViolation =
+              err?.code === '23505' ||
+              err?.message?.includes('orders_order_number_unique') ||
+              err?.message?.includes('unique constraint');
+
+            if (isUniqueViolation && retries > 1) {
+              retries--;
+              console.warn(`[OrderNumber Collision] ${orderNumber} already exists. Retrying with new random code (${retries} attempts left)...`);
+            } else {
+              throw err;
+            }
+          }
+        }
+
+        return insertedOrder;
       });
 
       return {
@@ -1146,7 +1262,7 @@ export const dbService = {
       
       const rows = await db.select().from(schema.settings);
       
-      const settingsObj = {
+      const settingsObj: StoreSettings = {
         store_name: 'DRFTN CLOTHING',
         contact_number: '+91 7406164512',
         instagram_handle: '@drftnclothing',
@@ -1155,6 +1271,12 @@ export const dbService = {
         razorpay_key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholderkey',
         razorpay_key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder_secret',
         nimbuspost_api_key: process.env.SHIPROCKET_EMAIL || 'shiprocket_placeholder',
+        blr_pincode_ranges: '560001-560300',
+        borzo_surcharge: 15000,
+        borzo_free_threshold: 149900,
+        borzo_cutoff_start: '11:00',
+        borzo_cutoff_end: '16:00',
+        borzo_pickup_address: 'DRFTN Store, Yelahanka, Bengaluru',
       };
 
       rows.forEach((row: any) => {
@@ -1164,6 +1286,18 @@ export const dbService = {
           settingsObj.default_shipping_charge = Number(row.value);
         } else if (row.key === 'store_whatsapp') {
           settingsObj.contact_number = row.value;
+        } else if (row.key === 'blr_pincode_ranges') {
+          settingsObj.blr_pincode_ranges = row.value;
+        } else if (row.key === 'borzo_surcharge') {
+          settingsObj.borzo_surcharge = Number(row.value);
+        } else if (row.key === 'borzo_free_threshold') {
+          settingsObj.borzo_free_threshold = Number(row.value);
+        } else if (row.key === 'borzo_cutoff_start') {
+          settingsObj.borzo_cutoff_start = row.value;
+        } else if (row.key === 'borzo_cutoff_end') {
+          settingsObj.borzo_cutoff_end = row.value;
+        } else if (row.key === 'borzo_pickup_address') {
+          settingsObj.borzo_pickup_address = row.value;
         }
       });
 

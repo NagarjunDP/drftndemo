@@ -16,6 +16,7 @@ export const createOrderSchema = z.object({
   discountCode: z.string().optional(),
   fulfillmentType: z.enum(['delivery', 'pickup']).default('delivery'),
   paymentMethod: z.enum(['razorpay', 'cod']).default('razorpay'),
+  shippingProvider: z.enum(['standard', 'express']).optional(),
   verifiedPhone: z.string().optional().nullable(),
   verifiedPhoneToken: z.string().optional().nullable(),
   customerInfo: z.object({
@@ -111,7 +112,11 @@ export const adminProductSchema = z.object({
   sizes: z.array(SizeEnum).min(1),
   stock_quantity: z.record(SizeEnum, z.number().int().nonnegative()),
   is_featured: z.boolean().default(false),
-  is_active: z.boolean().default(true)
+  is_active: z.boolean().default(true),
+  weight_grams: z.number().int().min(1, 'Product weight is required and must be at least 1g'),
+  length_cm: z.number().int().min(1).optional().nullable(),
+  breadth_cm: z.number().int().min(1).optional().nullable(),
+  height_cm: z.number().int().min(1).optional().nullable(),
 });
 
 // Admin Order Status Update Schema

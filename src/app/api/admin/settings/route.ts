@@ -14,6 +14,12 @@ const DEFAULT_SETTINGS = {
   razorpay_key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholderkey',
   razorpay_key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder_secret',
   nimbuspost_api_key: process.env.SHIPROCKET_EMAIL || 'shiprocket_placeholder',
+  blr_pincode_ranges: '560001-560300',
+  borzo_surcharge: 15000, // ₹150 in paise
+  borzo_free_threshold: 149900, // ₹1499 in paise
+  borzo_cutoff_start: '11:00',
+  borzo_cutoff_end: '16:00',
+  borzo_pickup_address: 'DRFTN Store, 1st Floor, Kogilu Main Rd, above Sri Venkateshwar Vaibhava Veg Hotel, K B Sandra, Yelahanka, Bengaluru, Karnataka, 560064',
 };
 
 function getEnvStatus() {
@@ -42,6 +48,18 @@ export async function GET() {
         settingsObj.default_shipping_charge = Number(row.value);
       } else if (row.key === 'store_whatsapp') {
         settingsObj.contact_number = row.value;
+      } else if (row.key === 'blr_pincode_ranges') {
+        settingsObj.blr_pincode_ranges = row.value;
+      } else if (row.key === 'borzo_surcharge') {
+        settingsObj.borzo_surcharge = Number(row.value);
+      } else if (row.key === 'borzo_free_threshold') {
+        settingsObj.borzo_free_threshold = Number(row.value);
+      } else if (row.key === 'borzo_cutoff_start') {
+        settingsObj.borzo_cutoff_start = row.value;
+      } else if (row.key === 'borzo_cutoff_end') {
+        settingsObj.borzo_cutoff_end = row.value;
+      } else if (row.key === 'borzo_pickup_address') {
+        settingsObj.borzo_pickup_address = row.value;
       }
     });
 
@@ -85,6 +103,18 @@ export async function PATCH(request: Request) {
         settingsObj.default_shipping_charge = Number(row.value);
       } else if (row.key === 'store_whatsapp') {
         settingsObj.contact_number = row.value;
+      } else if (row.key === 'blr_pincode_ranges') {
+        settingsObj.blr_pincode_ranges = row.value;
+      } else if (row.key === 'borzo_surcharge') {
+        settingsObj.borzo_surcharge = Number(row.value);
+      } else if (row.key === 'borzo_free_threshold') {
+        settingsObj.borzo_free_threshold = Number(row.value);
+      } else if (row.key === 'borzo_cutoff_start') {
+        settingsObj.borzo_cutoff_start = row.value;
+      } else if (row.key === 'borzo_cutoff_end') {
+        settingsObj.borzo_cutoff_end = row.value;
+      } else if (row.key === 'borzo_pickup_address') {
+        settingsObj.borzo_pickup_address = row.value;
       }
     });
 

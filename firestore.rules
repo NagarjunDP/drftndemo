@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global deny-all default rule
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Order Tracking rules: Any user can read if they know the order UUID document ID
+    // (This allows customers checking out as guests or via direct tracking links to view updates securely,
+    // as secure random UUIDs are not guessable). All writes are blocked except server-side firebase-admin SDK.
+    match /order_tracking/{orderId} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if false;
+    }
+
+    // 3. Pending Checkouts rules: Only the authenticated user who created it can read.
+    // All writes are blocked except server-side firebase-admin SDK.
+    match /pending_checkouts/{checkoutId} {
+      allow get, list: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow write: if false;
+    }
+  }
+}

@@ -41,6 +41,13 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
 
+  // Shipping & Dimensions States
+  const [weight, setWeight] = useState('');
+  const [weightUnit, setWeightUnit] = useState<'g' | 'kg'>('g');
+  const [length, setLength] = useState('');
+  const [breadth, setBreadth] = useState('');
+  const [height, setHeight] = useState('');
+
   const [categoriesList, setCategoriesList] = useState<Category[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Array<{ name: string; progress: number }>>([]);
@@ -119,6 +126,23 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
       setStock(initialStock);
       setIsFeatured(initialData.is_featured);
       setIsActive(initialData.is_active);
+
+      // Load Shipping & Dimensions
+      if (initialData.weight_grams) {
+        if (initialData.weight_grams >= 1000 && initialData.weight_grams % 1000 === 0) {
+          setWeight((initialData.weight_grams / 1000).toString());
+          setWeightUnit('kg');
+        } else {
+          setWeight(initialData.weight_grams.toString());
+          setWeightUnit('g');
+        }
+      } else {
+        setWeight('');
+        setWeightUnit('g');
+      }
+      setLength(initialData.length_cm ? initialData.length_cm.toString() : '');
+      setBreadth(initialData.breadth_cm ? initialData.breadth_cm.toString() : '');
+      setHeight(initialData.height_cm ? initialData.height_cm.toString() : '');
     }
   }, [initialData?.id]);
 
@@ -746,6 +770,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     if (!slug.trim()) return addToast('Product slug is required', 'error');
     if (!description.trim()) return addToast('Product description is required', 'error');
     if (!price || isNaN(Number(price))) return addToast('Valid product price is required', 'error');
+    if (!weight || isNaN(Number(weight)) || Number(weight) <= 0) return addToast('Product weight is required and must be greater than 0', 'error');
     if (images.length === 0) return addToast('Please upload at least one product image', 'error');
     if (activeSizes.length === 0) return addToast('Please select at least one active size', 'error');
 
@@ -776,6 +801,10 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         stock_quantity: finalStock,
         is_featured: isFeatured,
         is_active: isActive,
+        weight_grams: weightUnit === 'kg' ? Math.round(Number(weight) * 1000) : Math.round(Number(weight)),
+        length_cm: length ? Math.round(Number(length)) : null,
+        breadth_cm: breadth ? Math.round(Number(breadth)) : null,
+        height_cm: height ? Math.round(Number(height)) : null,
       };
 
       // [DEV] Log the exact payload being sent to the DB for verification
@@ -1495,6 +1524,75 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
               <p className="text-[10px] text-zinc-500 leading-normal">
                 Strikethrough price. Leave blank if the product is not on discount.
               </p>
+            </div>
+          </div>
+
+          {/* Shipping Details */}
+          <div className="bg-white border border-zinc-200/80 shadow-sm p-6 md:p-8 space-y-6 text-left">
+            <h2 className="text-sm font-bold text-zinc-900 uppercase tracking-widest border-b border-zinc-200/60 pb-3">
+              Shipping & Dimensions
+            </h2>
+
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-wider text-zinc-500 font-bold block">Weight</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="e.g. 250"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  className="flex-1 bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:bg-white focus:border-zinc-950 focus:ring-1 focus:ring-zinc-950 transition-all font-mono"
+                  required
+                  min="1"
+                />
+                <select
+                  value={weightUnit}
+                  onChange={(e) => setWeightUnit(e.target.value as 'g' | 'kg')}
+                  className="bg-zinc-50 border border-zinc-200 text-zinc-900 px-3 py-3 text-sm focus:outline-none focus:bg-white focus:border-zinc-950 focus:ring-1 focus:ring-zinc-950 transition-all font-bold"
+                >
+                  <option value="g">g</option>
+                  <option value="kg">kg</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-xs uppercase tracking-wider text-zinc-500 font-bold block">Box Dimensions (Optional)</label>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">L (cm)</span>
+                  <input
+                    type="number"
+                    placeholder="Length"
+                    value={length}
+                    onChange={(e) => setLength(e.target.value)}
+                    className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-3 py-2 text-xs focus:outline-none focus:bg-white focus:border-zinc-950 transition-all font-mono"
+                    min="1"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">B (cm)</span>
+                  <input
+                    type="number"
+                    placeholder="Breadth"
+                    value={breadth}
+                    onChange={(e) => setBreadth(e.target.value)}
+                    className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-3 py-2 text-xs focus:outline-none focus:bg-white focus:border-zinc-950 transition-all font-mono"
+                    min="1"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">H (cm)</span>
+                  <input
+                    type="number"
+                    placeholder="Height"
+                    value={height}
+                    onChange={(e) => setHeight(e.target.value)}
+                    className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-3 py-2 text-xs focus:outline-none focus:bg-white focus:border-zinc-950 transition-all font-mono"
+                    min="1"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

@@ -44,6 +44,91 @@
   --text-display: clamp(3.5rem, 9vw, 8.5rem);
   --text-hero: clamp(2.5rem, 7vw, 6rem);
   --text-headline: clamp(1.75rem, 4vw, 3.5rem);
+
+  /* Dynamic Hero Contrast Tokens */
+  --hero-fg: #FFFFFF;
+  --hero-bg-accent: #FFFFFF;
+  --hero-bg-contrast: #0A0A0A;
+}
+
+/* =====================================================
+   HERO DYNAMIC CONTRAST MODES & CSS BACKGROUND ENFORCEMENT
+   ===================================================== */
+#hero-scene,
+.hero-contrast-wrapper,
+.pin-spacer {
+  background-color: #000000 !important;
+}
+
+.hero-contrast-wrapper {
+  --hero-fg: #FFFFFF;
+  --hero-bg-accent: #FFFFFF;
+  --hero-bg-contrast: #0A0A0A;
+  transition: background-color 0.35s ease;
+}
+
+.hero-contrast-wrapper[data-contrast-mode="dark"] {
+  --hero-fg: #FFFFFF;
+  --hero-bg-accent: #FFFFFF;
+  --hero-bg-contrast: #0A0A0A;
+  color: #FFFFFF;
+}
+
+.hero-contrast-wrapper[data-contrast-mode="light"] {
+  --hero-fg: #0A0A0A;
+  --hero-bg-accent: #0A0A0A;
+  --hero-bg-contrast: #F5F5F3;
+  color: #0A0A0A;
+}
+
+.hero-dynamic-text {
+  color: var(--hero-fg);
+  transition: color 0.35s ease;
+}
+
+.hero-dynamic-btn-primary {
+  background-color: var(--hero-fg);
+  color: var(--hero-bg-contrast) !important;
+  border: 1px solid var(--hero-fg);
+  transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease, transform 0.15s ease;
+}
+
+.hero-dynamic-btn-primary:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.hero-dynamic-btn-secondary {
+  background-color: transparent;
+  color: var(--hero-fg) !important;
+  border: 1px solid var(--hero-fg);
+  transition: color 0.35s ease, border-color 0.35s ease, background-color 0.35s ease;
+}
+
+.hero-dynamic-btn-secondary:hover {
+  background-color: var(--hero-fg);
+  color: var(--hero-bg-contrast) !important;
+}
+
+/* Continuous GPU-cheap spin animation for circular scroll badge */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 18s linear infinite;
+  transform-origin: center center;
+}
+
+/* Hollow text stroke utility for text fill-on-scroll */
+.text-stroke-hollow {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.4);
 }
 
 /* =====================================================
@@ -141,40 +226,34 @@ h6 {
   justify-content: center;
   gap: 0.5rem;
   overflow: hidden;
-  background: var(--color-offwhite);
-  color: var(--color-black);
-  font-family: 'Inter', sans-serif;
-  font-weight: 600;
-  font-size: 0.7rem;
+  background: #FFFFFF;
+  color: #000000 !important;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   padding: 1rem 2.25rem;
-  transition: all var(--transition-streetwear);
-  border: 1px solid transparent;
-}
-
-.btn-primary::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--color-red);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform var(--transition-streetwear);
-}
-
-.btn-primary:hover::before {
-  transform: scaleX(1);
+  transition: background-color 0.2s ease, transform 0.15s ease, opacity 0.2s ease;
+  border: 1px solid #FFFFFF;
+  cursor: pointer;
 }
 
 .btn-primary:hover {
-  color: var(--color-offwhite);
-  border-color: var(--color-red);
+  background: #E5E5E5;
+  color: #000000 !important;
+  border-color: #E5E5E5;
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+  background: #D4D4D4;
 }
 
 .btn-primary span {
   position: relative;
   z-index: 1;
+  color: #000000 !important;
 }
 
 .btn-outline {
@@ -1016,4 +1095,347 @@ input[type=number] {
   .product-image-hoverable * {
     cursor: none !important;
   }
+}
+
+/* ═══════════════════════════════════════════════════
+   ULTRA-PREMIUM SMOOTHNESS SYSTEM
+   Better than ₹2L Shopify themes — pure CSS, zero JS
+   ═══════════════════════════════════════════════════ */
+
+/* ── 1. View Transitions API — seamless page navigation ── */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: vt-slide-out 0.22s cubic-bezier(0.76, 0, 0.24, 1) both;
+}
+
+::view-transition-new(root) {
+  animation: vt-slide-in 0.22s cubic-bezier(0.76, 0, 0.24, 1) both;
+}
+
+@keyframes vt-slide-out {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes vt-slide-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* ── 2. Premium Spring Easing Tokens ── */
+:root {
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
+  --ease-magnetic: cubic-bezier(0.23, 1, 0.32, 1);
+  --duration-instant: 80ms;
+  --duration-swift: 180ms;
+  --duration-smooth: 340ms;
+  --duration-cinematic: 680ms;
+}
+
+/* ── 3. GPU-Accelerated product image hover — scale + sharpen ── */
+.product-image-hoverable img,
+.product-image-hoverable [data-img] {
+  will-change: transform;
+  transform: scale(1) translateZ(0);
+  transition:
+    transform var(--duration-cinematic) var(--ease-out-expo),
+    filter var(--duration-smooth) ease;
+}
+
+.product-image-hoverable:hover img,
+.product-image-hoverable:hover [data-img] {
+  transform: scale(1.048) translateZ(0);
+  filter: contrast(1.04) brightness(1.02);
+}
+
+/* ── 4. Link & button micro-interactions ── */
+a, button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a:not([class]), button:not([class]) {
+  transition: opacity var(--duration-swift) ease;
+}
+
+.btn-primary, .btn-outline, .btn-ghost, .btn-electric {
+  transition:
+    background var(--duration-smooth) var(--ease-out-expo),
+    color var(--duration-smooth) var(--ease-out-expo),
+    border-color var(--duration-smooth) var(--ease-out-expo),
+    transform var(--duration-swift) var(--ease-spring),
+    box-shadow var(--duration-smooth) var(--ease-out-expo);
+}
+
+.btn-primary:active,
+.btn-outline:active,
+.btn-electric:active {
+  transform: scale(0.96) translateY(1px);
+}
+
+/* ── 5. Image crossfade — ultra-smooth reveal ── */
+.img-reveal {
+  position: relative;
+  overflow: hidden;
+  background: #111;
+}
+
+.img-reveal img {
+  transition:
+    opacity 0.55s var(--ease-out-expo),
+    transform var(--duration-cinematic) var(--ease-out-expo);
+}
+
+.img-reveal[data-loaded="true"] img {
+  opacity: 1 !important;
+}
+
+/* ── 6. Scroll-driven opacity reveal (native CSS, no JS) ── */
+@supports (animation-timeline: scroll()) {
+  .scroll-fade-in {
+    animation: scroll-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 25%;
+  }
+
+  @keyframes scroll-reveal {
+    from { opacity: 0; transform: translateY(24px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .scroll-fade-up {
+    animation: scroll-fade-up-anim linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 30%;
+  }
+
+  @keyframes scroll-fade-up-anim {
+    from { opacity: 0; transform: translateY(40px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* ── 7. Product card — ultra smooth hover lift (compositor-only) ── */
+.product-card-wrap {
+  transition:
+    transform var(--duration-smooth) var(--ease-out-expo),
+    box-shadow var(--duration-smooth) var(--ease-out-expo);
+  will-change: transform;
+}
+
+.product-card-wrap:hover {
+  transform: scale(1.012) translateZ(0);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.product-card-wrap:active {
+  transform: scale(0.985) translateZ(0);
+}
+
+/* ── 8. Mobile rubber-band overscroll & momentum ── */
+html {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: none;
+}
+
+@media (max-width: 767px) {
+  html {
+    overscroll-behavior-y: contain;
+  }
+
+  /* Prevent content shift on iOS keyboard open */
+  body {
+    min-height: -webkit-fill-available;
+  }
+
+  /* Full-height fix for iOS Safari */
+  .min-h-screen {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* ── 9. Nav link underline slide animation ── */
+.nav-link-premium {
+  position: relative;
+  transition: color var(--duration-swift) var(--ease-out-expo);
+}
+
+.nav-link-premium::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform var(--duration-smooth) var(--ease-out-expo);
+}
+
+.nav-link-premium:hover::after,
+.nav-link-premium[aria-current="page"]::after {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+
+/* ── 10. Shimmer v2 — faster, smoother ── */
+.shimmer-v2 {
+  position: relative;
+  overflow: hidden;
+  background: #111;
+}
+
+.shimmer-v2::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-v2-anim 1.4s ease infinite;
+}
+
+@keyframes shimmer-v2-anim {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── 11. Focus ring — premium keyboard navigation ── */
+:focus-visible {
+  outline: 1.5px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 3px;
+  border-radius: 2px;
+  transition: outline-color var(--duration-swift) ease;
+}
+
+/* ── 12. Reduced motion — respect user preference ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/* ── 13. Typography kerning & sub-pixel polish ── */
+h1, h2, h3, h4, h5, h6 {
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── 14. Selection color — brand-matched ── */
+::selection {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+/* ── 15. Cart & drawer ultra-smooth transitions ── */
+.cart-drawer-enter {
+  transform: translateX(100%);
+  transition: transform var(--duration-cinematic) var(--ease-out-expo);
+}
+
+.cart-drawer-open {
+  transform: translateX(0);
+}
+
+/* ── 16. Image progressive load — blur-up polish ── */
+.blur-up {
+  filter: blur(8px);
+  transition: filter 0.5s var(--ease-out-expo);
+}
+
+.blur-up.loaded {
+  filter: blur(0);
+}
+
+/* ── 17. Scroll progress bar — ultra-thin, premium ── */
+.scroll-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1.5px;
+  background: transparent;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+.scroll-progress-fill {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.7);
+  transform-origin: left;
+  transition: transform 0.1s linear;
+}
+
+/* ── 18. Mobile bottom nav — spring transition ── */
+.mobile-nav-bar {
+  transition:
+    transform var(--duration-smooth) var(--ease-out-expo),
+    background var(--duration-smooth) ease;
+}
+
+/* ── 19. Ping animation — more premium ── */
+@keyframes premium-ping {
+  0%   { transform: scale(1); opacity: 0.8; }
+  70%  { transform: scale(2); opacity: 0; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+.premium-ping {
+  animation: premium-ping 1.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* ── 20. Stagger children utility ── */
+.stagger-children > * {
+  opacity: 0;
+  transform: translateY(16px);
+  animation: stagger-reveal 0.5s var(--ease-out-expo) forwards;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 360ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 420ms; }
+
+@keyframes stagger-reveal {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 21. Pure CSS Marquee Keyframes (GPU-cheap transform) ── */
+@keyframes marquee-continuous {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-marquee-continuous {
+  animation: marquee-continuous 24s linear infinite;
+  will-change: transform;
 }

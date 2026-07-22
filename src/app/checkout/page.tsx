@@ -18,6 +18,88 @@ export default function CheckoutPage() {
   
   const [mounted, setMounted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [shippingProvider, setShippingProvider] = useState<'standard' | 'express'>('standard');
+
+  const [checkoutEligibility, setCheckoutEligibility] = useState<{
+    borzoEligible: boolean;
+    extraCharge: number;
+    shiprocketAvailable: boolean;
+    estimatedStandardDays: number;
+  } | null>(null);
+  const [checkingCheckoutEligibility, setCheckingCheckoutEligibility] = useState(false);
+
+  const triggerCheckoutEligibilityCheck = async (pin: string) => {
+    if (!/^\d{6}$/.test(pin)) return;
+    setCheckingCheckoutEligibility(true);
+    try {
+      const res = await fetch(`/api/shipping/serviceability?pincode=${pin}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCheckoutEligibility(data);
+        if (!data.borzoEligible) {
+          setShippingProvider('standard');
+        }
+      } else {
+        setCheckoutEligibility(null);
+        setShippingProvider('standard');
+      }
+    } catch (err) {
+      console.error('Checkout serviceability check failure:', err);
+      setCheckoutEligibility(null);
+      setShippingProvider('standard');
+    } finally {
+      setCheckingCheckoutEligibility(false);
+    }
+  };
+
+
+
+  const isExpressPincode = (pincode: string, rangesStr: string): boolean => {
+    const pin = Number(pincode.trim());
+    if (isNaN(pin) || !rangesStr) return false;
+
+    const parts = rangesStr.split(',').map(s => s.trim());
+    for (const part of parts) {
+      if (part.includes('-')) {
+        const [startStr, endStr] = part.split('-');
+        const start = Number(startStr);
+        const end = Number(endStr);
+        if (!isNaN(start) && !isNaN(end) && pin >= start && pin <= end) {
+          return true;
+        }
+      } else {
+        const exact = Number(part);
+        if (!isNaN(exact) && pin === exact) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  const getExpressPromise = () => {
+    const startStr = storeConfig.borzoCutoffStart || '11:00';
+    const endStr = storeConfig.borzoCutoffEnd || '16:00';
+    
+    try {
+      const options: Intl.DateTimeFormatOptions = {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      };
+      const formatter = new Intl.DateTimeFormat([], options);
+      const timeStr = formatter.format(new Date());
+      
+      if (timeStr >= startStr && timeStr <= endStr) {
+        return `Same-day 120-min delivery (Placed within ${startStr} - ${endStr})`;
+      } else {
+        return `Next-day morning delivery (Placed outside ${startStr} - ${endStr})`;
+      }
+    } catch (e) {
+      return 'Same-day 120-min delivery';
+    }
+  };
   
   // Checkout steps: 1 = Contact & Shipping, 2 = Payment, 3 = Confirmation
   const [currentStep, setCurrentStep] = useState(1);
@@ -46,6 +128,11 @@ export default function CheckoutPage() {
     defaultShippingCharge: 9900,
     codFee: 5000,
     whatsappNumber: '+917406164512',
+    borzoCutoffStart: '11:00',
+    borzoCutoffEnd: '16:00',
+    blrPincodeRanges: '560001-560300',
+    borzoSurcharge: 15000,
+    borzoFreeThreshold: 149900,
   });
 
   // Form inputs state
@@ -61,6 +148,15 @@ export default function CheckoutPage() {
   });
 
   const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'cod'>('razorpay');
+
+  // Re-run checking whenever pincode changes and reaches 6 digits
+  useEffect(() => {
+    if (formData.pincode && formData.pincode.length === 6) {
+      triggerCheckoutEligibilityCheck(formData.pincode);
+    } else {
+      setCheckoutEligibility(null);
+    }
+  }, [formData.pincode]);
 
   // Fetch settings on mount
   useEffect(() => {
@@ -223,7 +319,8 @@ export default function CheckoutPage() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   // Helper to calculate pricing breakdowns in paise
@@ -241,13 +338,23 @@ export default function CheckoutPage() {
 
     const discountedSubtotal = Math.max(0, subtotal - discount);
     
+    // Check if express is available and selected
+    const expressAvailable = fulfillmentType === 'delivery' && !!checkoutEligibility?.borzoEligible;
+    const expressCharge = expressAvailable 
+      ? (discountedSubtotal >= (storeConfig.borzoFreeThreshold ?? 149900) ? 0 : (checkoutEligibility?.extraCharge ?? 150) * 100)
+      : 0;
+
     // Shipping calculation
     let shippingCharge = 0;
     if (fulfillmentType === 'delivery') {
-      shippingCharge = discountedSubtotal >= storeConfig.freeShippingThreshold ? 0 : storeConfig.defaultShippingCharge;
+      if (shippingProvider === 'express' && expressAvailable) {
+        shippingCharge = expressCharge;
+      } else {
+        shippingCharge = discountedSubtotal >= storeConfig.freeShippingThreshold ? 0 : storeConfig.defaultShippingCharge;
+      }
       
-      // Add COD fee if COD is selected
-      if (paymentMethod === 'cod' && storeConfig.razorpayActive) {
+      // Add COD fee if COD is selected (only standard delivery allows COD)
+      if (paymentMethod === 'cod' && shippingProvider === 'standard' && storeConfig.razorpayActive) {
         shippingCharge += storeConfig.codFee;
       }
     }
@@ -256,6 +363,7 @@ export default function CheckoutPage() {
       subtotal,
       discount,
       shippingCharge,
+      expressCharge,
       total: discountedSubtotal + shippingCharge,
     };
   };
@@ -323,6 +431,7 @@ export default function CheckoutPage() {
             discountCode: discountCode?.code || undefined,
             paymentMethod: paymentMethod,
             fulfillmentType: fulfillmentType,
+            shippingProvider: fulfillmentType === 'delivery' ? shippingProvider : undefined,
             verifiedPhone: verifiedPhone || undefined,
             verifiedPhoneToken: verifiedPhoneToken || undefined,
             customerInfo: {
@@ -868,7 +977,7 @@ export default function CheckoutPage() {
                         className="w-full bg-zinc-900/50 border border-zinc-800 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-white focus:bg-zinc-900 transition-colors"
                       />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 font-mono">
                       <label className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold block">PIN Code (6-digit)</label>
                       <input
                         type="text"
@@ -881,6 +990,90 @@ export default function CheckoutPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Delivery Option Selector (Express vs Standard) */}
+                  {fulfillmentType === 'delivery' && formData.pincode.length === 6 && (
+                    <div className="mt-4 p-4 border border-zinc-850 bg-zinc-950/60 rounded-lg space-y-3 text-left">
+                      <label className="text-xs uppercase tracking-widest text-zinc-400 font-bold block">
+                        Choose Delivery Speed
+                      </label>
+                      
+                      <div className="space-y-2">
+                        {/* Standard Delivery Option */}
+                        <label className={`flex items-start gap-3 p-3 border transition-colors cursor-pointer rounded-lg ${
+                          shippingProvider === 'standard' ? 'border-white bg-zinc-900/40' : 'border-zinc-850 bg-zinc-950/20'
+                        }`}>
+                          <input
+                            type="radio"
+                            name="shipping_provider"
+                            checked={shippingProvider === 'standard'}
+                            onChange={() => setShippingProvider('standard')}
+                            className="mt-1 accent-white"
+                          />
+                          <div className="flex-1">
+                            <span className="font-bold text-xs block text-brand-offwhite uppercase tracking-wider">Standard Delivery</span>
+                            <span className="text-[10px] text-zinc-500 block mt-0.5">
+                              ₹{shippingProvider === 'standard' ? (calculateTotalBreakdown().shippingCharge / 100).toFixed(0) : (subtotal >= storeConfig.freeShippingThreshold ? '0' : (storeConfig.defaultShippingCharge / 100).toFixed(0))} • Delivery in {checkoutEligibility?.estimatedStandardDays ?? 4-6} business days
+                            </span>
+                          </div>
+                        </label>
+
+                        {/* Express Delivery Option */}
+                        {checkingCheckoutEligibility ? (
+                          <div className="p-3 border border-zinc-850 bg-zinc-950/25 rounded-lg text-zinc-500 text-xs animate-pulse font-bold uppercase tracking-wider">
+                            Checking Express availability...
+                          </div>
+                        ) : checkoutEligibility?.borzoEligible ? (
+                          <label className={`flex items-start gap-3 p-3 border transition-colors cursor-pointer rounded-lg ${
+                            shippingProvider === 'express' ? 'border-white bg-zinc-900/40' : 'border-zinc-850 bg-zinc-950/20'
+                          }`}>
+                            <input
+                              type="radio"
+                              name="shipping_provider"
+                              checked={shippingProvider === 'express'}
+                              onChange={() => {
+                                setShippingProvider('express');
+                                setPaymentMethod('razorpay');
+                              }}
+                              className="mt-1 accent-white"
+                            />
+                            <div className="flex-1">
+                              <span className="font-bold text-xs block text-brand-offwhite uppercase tracking-wider flex items-center gap-1.5">
+                                ⚡ Express Delivery (Borzo)
+                                {calculateTotalBreakdown().expressCharge === 0 && (
+                                  <span className="text-[9px] bg-green-950 text-green-400 border border-green-900 px-1 rounded uppercase tracking-wider font-extrabold">Free</span>
+                                )}
+                              </span>
+                              <span className="text-[10px] text-zinc-500 block mt-0.5 font-mono">
+                                {calculateTotalBreakdown().expressCharge > 0 
+                                  ? `₹${(calculateTotalBreakdown().expressCharge / 100).toFixed(0)} Surcharge • ` 
+                                  : '₹0 Surcharge (Cart > ₹1499) • '}
+                                {getExpressPromise()}
+                              </span>
+                            </div>
+                          </label>
+                        ) : (
+                          <div className="flex items-start gap-3 p-3 border border-zinc-900 bg-zinc-950/10 rounded-lg opacity-40 select-none">
+                            <input
+                              type="radio"
+                              name="shipping_provider"
+                              disabled
+                              checked={false}
+                              className="mt-1 accent-zinc-500"
+                            />
+                            <div className="flex-1">
+                              <span className="font-bold text-xs block text-zinc-600 uppercase tracking-wider">
+                                ⚡ Express Delivery (Borzo)
+                              </span>
+                              <span className="text-[10px] text-rose-500/80 block mt-0.5">
+                                Unavailable for this PIN code (Rider coverage limit)
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </section>
               ) : (
                 <section className="space-y-4 animate-fade-in bg-zinc-950/60 border border-zinc-850 p-5 rounded-lg">
@@ -931,7 +1124,7 @@ export default function CheckoutPage() {
                 {storeConfig.razorpayActive ? (
                   <div className="space-y-4">
                     {/* Razorpay Option */}
-                    <label className={`flex items-start gap-4 p-5 border transition-colors cursor-pointer ${
+                    <label className={`flex items-start gap-4 p-5 border transition-colors cursor-pointer rounded-lg ${
                       paymentMethod === 'razorpay' ? 'border-white bg-zinc-900/40' : 'border-zinc-800 bg-zinc-900/10'
                     }`}>
                       <input
@@ -948,24 +1141,27 @@ export default function CheckoutPage() {
                     </label>
 
                     {/* COD Option */}
-                    <div className={`p-5 border transition-colors ${
-                      paymentMethod === 'cod' ? 'border-white bg-zinc-900/40' : 'border-zinc-800 bg-zinc-900/10'
-                    }`}>
-                      <label className="flex items-start gap-4 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="payment_method"
-                          checked={paymentMethod === 'cod'}
-                          onChange={() => setPaymentMethod('cod')}
-                          className="mt-1 accent-white"
-                        />
-                        <div className="flex-1">
-                          <span className="font-bold text-sm block uppercase tracking-wider text-brand-offwhite">Cash on Delivery (COD)</span>
-                          <span className="text-xs text-zinc-500 mt-1 block">
-                            Pay in cash upon delivery. Adds an extra COD convenience charge of ₹{(storeConfig.codFee / 100).toFixed(0)}.
-                          </span>
-                        </div>
-                      </label>
+                    {shippingProvider !== 'express' && (
+                      <div className={`p-5 border border-zinc-800 bg-zinc-900/10 rounded-lg transition-colors ${
+                        paymentMethod === 'cod' ? 'border-white bg-zinc-900/40' : 'border-zinc-800 bg-zinc-900/10'
+                      }`}>
+                        <label className="flex items-start gap-4 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="payment_method"
+                            checked={paymentMethod === 'cod'}
+                            onChange={() => setPaymentMethod('cod')}
+                            className="mt-1 accent-white"
+                          />
+                          <div className="flex-1">
+                            <span className="font-bold text-sm block uppercase tracking-wider text-brand-offwhite">Cash on Delivery (COD)</span>
+                            <span className="text-xs text-zinc-500 mt-1 block">
+                              Pay in cash upon delivery. Adds an extra COD convenience charge of ₹{(storeConfig.codFee / 100).toFixed(0)}.
+                            </span>
+                          </div>
+                        </label>
+                      </div>
+                    )}
 
                       {paymentMethod === 'cod' && (
                         <div className="mt-4 p-4 border border-zinc-800 bg-zinc-950/80 rounded space-y-3">
@@ -1025,7 +1221,6 @@ export default function CheckoutPage() {
                         </div>
                       )}
                     </div>
-                  </div>
                 ) : (
                   <div className="bg-zinc-900/40 border border-zinc-800 p-8 text-center space-y-4">
                     <Lock className="w-8 h-8 text-zinc-600 mx-auto" />
@@ -1040,7 +1235,12 @@ export default function CheckoutPage() {
               </section>
 
               {/* Place Order / Payment Execute */}
-              <div className="pt-4">
+              <div className="pt-4 space-y-4">
+                {shippingProvider === 'express' && (
+                  <div className="p-4 border border-zinc-800 bg-red-950/10 rounded-lg text-left text-xs text-red-400 leading-relaxed font-mono">
+                    ⚠️ <strong>Express Returns Policy:</strong> Express orders are dispatched immediately via Borzo and cannot be cancelled/edited. Returns only apply to unworn streetwear items in original tag packaging.
+                  </div>
+                )}
                 <button
                   onClick={handlePlaceOrder}
                   disabled={isProcessing || (paymentMethod === 'cod' && storeConfig.razorpayActive && !verifiedPhone)}

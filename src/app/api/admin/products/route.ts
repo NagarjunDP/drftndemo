@@ -51,12 +51,33 @@ export async function PATCH(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const body = await request.json();
+
+    // Check if bulk weight update
+    if (!id && body.ids && Array.isArray(body.ids) && body.weight_grams !== undefined) {
+      const { db } = await import('@/db');
+      const schema = await import('@/db/schema');
+      const { inArray } = await import('drizzle-orm');
+
+      const weightVal = Number(body.weight_grams);
+      if (isNaN(weightVal) || weightVal <= 0) {
+        return NextResponse.json({ error: 'Invalid weight value' }, { status: 400 });
+      }
+
+      await db
+        .update(schema.products)
+        .set({
+          weight_grams: weightVal,
+          updated_at: new Date(),
+        })
+        .where(inArray(schema.products.id, body.ids));
+
+      return NextResponse.json({ success: true, count: body.ids.length });
+    }
 
     if (!id) {
       return NextResponse.json({ error: 'Product ID parameter is required' }, { status: 400 });
     }
-
-    const body = await request.json();
     
     // Partial validation of incoming edits
     const partialProductSchema = adminProductSchema.partial();

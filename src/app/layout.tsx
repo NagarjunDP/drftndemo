@@ -12,6 +12,8 @@ import PushPrompt from '@/components/PushPrompt';
 import LoginIncentivePopup from '@/components/LoginIncentivePopup';
 import NotificationToast from '@/components/NotificationToast';
 import CustomCursor from '@/components/CustomCursor';
+import PageTransition from '@/components/PageTransition';
+import SmoothScrollProvider from '@/components/SmoothScrollProvider';
 import { ClerkProvider } from '@clerk/nextjs';
 import { AuthSessionProvider } from '@/context/AuthContext';
 
@@ -188,33 +190,34 @@ export default function RootLayout({
           />
         </head>
         <body suppressHydrationWarning className="antialiased min-h-screen flex flex-col bg-brand-black text-brand-offwhite">
-          <AuthSessionProvider>
-            {/* Global Navbar */}
-            <Navbar />
+          <SmoothScrollProvider>
+            <AuthSessionProvider>
+              {/* Global Navbar */}
+              <Navbar />
 
-            {/* Main Content Area */}
-            <main className="flex-1 flex flex-col relative w-full">
-              {children}
-            </main>
+              {/* Main Content Area */}
+              <main className="flex-1 flex flex-col relative w-full">
+                <PageTransition>{children}</PageTransition>
+              </main>
 
-            {/* Global Footer */}
-            <Footer />
+              {/* Global Footer */}
+              <Footer />
 
-            {/* Global Navigation Drawers and Widgets */}
-            <MiniCart />
-            <MobileNavbar />
-            <WhatsAppButton />
-            <ToastContainer />
-            <AddToCartAnimation />
-            <BrandLoader />
-            <PushPrompt />
-            <LoginIncentivePopup />
-            <NotificationToast />
-            <CustomCursor />
-            {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}
-            <div id="clerk-captcha" />
-          </AuthSessionProvider>
-
+              {/* Global Navigation Drawers and Widgets */}
+              <MiniCart />
+              <MobileNavbar />
+              <WhatsAppButton />
+              <ToastContainer />
+              <AddToCartAnimation />
+              <BrandLoader />
+              <PushPrompt />
+              <LoginIncentivePopup />
+              <NotificationToast />
+              <CustomCursor />
+              {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}
+              <div id="clerk-captcha" />
+            </AuthSessionProvider>
+          </SmoothScrollProvider>
         </body>
       </html>
     </ClerkProvider>

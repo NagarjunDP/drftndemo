@@ -49,6 +49,10 @@ export const products = pgTable('products', {
   stock_quantity: jsonb('stock').$type<Record<string, number>>().notNull().default(sql`'{"XS": 0, "S": 0, "M": 0, "L": 0, "XL": 0, "XXL": 0}'::jsonb`),
   is_featured: boolean('is_featured').notNull().default(false),
   is_active: boolean('is_active').notNull().default(true),
+  weight_grams: integer('weight_grams').notNull().default(0),
+  length_cm: integer('length_cm'),
+  breadth_cm: integer('breadth_cm'),
+  height_cm: integer('height_cm'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -92,6 +96,9 @@ export const orders = pgTable('orders', {
   tracking_number: text('tracking_number'), // Shiprocket AWB
   courier_partner: text('courier_partner'),
   shiprocket_order_id: text('shiprocket_order_id'),
+  courier_provider: text('courier_provider'), // 'borzo' | 'shiprocket' | null
+  zone: text('zone'), // 'BLR_EXPRESS' | 'STANDARD' | null
+  invoice_number: text('invoice_number'),
   payment_type: text('payment_type').$type<'prepaid' | 'cod_with_deposit'>().notNull().default('prepaid'),
   deposit_amount: integer('deposit_amount'), // in paise, for COD orders (₹200 = 20000)
   remaining_amount: integer('remaining_amount'), // in paise, due at delivery (total - deposit_amount)

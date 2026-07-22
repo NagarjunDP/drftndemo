@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import NextImage from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -19,15 +19,19 @@ interface ProductDetailPageProps {
   params: {
     slug: string;
   };
+  // Pre-fetched server-side data — when provided, client skips all fetching
+  initialProduct?: Product | null;
+  initialRelatedProducts?: Product[];
 }
 
-export default function ProductDetailClient({ params }: ProductDetailPageProps) {
+export default function ProductDetailClient({ params, initialProduct, initialRelatedProducts }: ProductDetailPageProps) {
   const router = useRouter();
   const slug = params.slug;
 
-  const [product, setProduct] = useState<Product | null>(null);
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Initialize from SSR data — no loading state when server pre-fetches
+  const [product, setProduct] = useState<Product | null>(initialProduct ?? null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>(initialRelatedProducts ?? []);
+  const [loading, setLoading] = useState(!initialProduct);
   const [isAdding, setIsAdding] = useState(false);
 
   // Gallery & Detail State
@@ -40,6 +44,41 @@ export default function ProductDetailClient({ params }: ProductDetailPageProps) 
   const [isSubscribing, setIsSubscribing] = useState<boolean>(false);
   const mainButtonsRef = useRef<HTMLDivElement>(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
+
+  // Serviceability check states
+  const [pincode, setPincode] = useState('');
+  const [checkingEligibility, setCheckingEligibility] = useState(false);
+  const [eligibilityResult, setEligibilityResult] = useState<{
+    borzoEligible: boolean;
+    extraCharge: number;
+    shiprocketAvailable: boolean;
+    estimatedStandardDays: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const savedPincode = localStorage.getItem('drftn_pincode');
+    if (savedPincode && /^\d{6}$/.test(savedPincode)) {
+      setPincode(savedPincode);
+      checkPincode(savedPincode);
+    }
+  }, []);
+
+  const checkPincode = async (pin: string) => {
+    if (!/^\d{6}$/.test(pin)) return;
+    setCheckingEligibility(true);
+    try {
+      const res = await fetch(`/api/shipping/serviceability?pincode=${pin}`);
+      const data = await res.json();
+      if (res.ok) {
+        setEligibilityResult(data);
+        localStorage.setItem('drftn_pincode', pin);
+      }
+    } catch (err) {
+      console.error('Error checking delivery serviceability:', err);
+    } finally {
+      setCheckingEligibility(false);
+    }
+  };
 
   // Sticky Add to Bag Observer
   useEffect(() => {
@@ -56,27 +95,38 @@ export default function ProductDetailClient({ params }: ProductDetailPageProps) 
     );
 
     observer.observe(target);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, [loading]);
 
   // Cart operations
   const addItem = useCartStore((state) => state.addItem);
 
-  // Load product data
+  // Set the first image once product is available (covers both SSR and client-fetch paths)
   useEffect(() => {
+    if (product && !activeImage) {
+      setActiveImage(product.images[0] || '');
+    }
+  }, [product]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Client-side fetch ONLY runs when SSR data wasn't provided (fallback / direct URL access)
+  useEffect(() => {
+    if (initialProduct) return; // SSR data already available — skip fetch entirely
+
     async function loadProduct() {
       try {
         setLoading(true);
-        const prod = await dbService.getProductBySlug(slug);
+        const [prod, allProds] = await Promise.all([
+          dbService.getProductBySlug(slug),
+          dbService.getProducts(),
+        ]);
         if (!prod) {
           setProduct(null);
           return;
         }
         setProduct(prod);
         setActiveImage(prod.images[0] || '');
-
-        // Fetch related products
-        const allProds = await dbService.getProducts();
         const related = allProds
           .filter((p) => p.category === prod.category && p.id !== prod.id)
           .slice(0, 4);
@@ -88,7 +138,7 @@ export default function ProductDetailClient({ params }: ProductDetailPageProps) 
       }
     }
     loadProduct();
-  }, [slug]);
+  }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   useEffect(() => {
@@ -160,31 +210,7 @@ export default function ProductDetailClient({ params }: ProductDetailPageProps) 
     setQuantity((prev) => Math.max(1, Math.min(prev, newSizeStock)));
   }, [selectedSize, stockQuantity]);
 
-  if (loading) {
-    return (
-      <div className="py-12 px-6 md:px-12 max-w-7xl mx-auto w-full">
-        <ProductDetailSkeleton />
-      </div>
-    );
-  }
 
-  if (!product) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center py-20 px-6 space-y-4">
-        <Info className="w-16 h-16 text-white/40 stroke-[1]" />
-        <div>
-          <h2 className="text-2xl font-black uppercase tracking-wider text-brand-offwhite">PRODUCT NOT FOUND</h2>
-          <p className="text-zinc-500 text-xs mt-1">This drop might have ended or is currently archived.</p>
-        </div>
-        <Link
-          href="/shop"
-          className="btn-electric bg-brand-offwhite text-brand-black font-bold text-xs tracking-widest uppercase py-3.5 px-8 rounded shadow"
-        >
-          Return to Shop
-        </Link>
-      </div>
-    );
-  }
 
   const isCompletelyOutOfStock = product ? product.sizes.every((s) => (product.stock_quantity[s] || 0) <= 0) : false;
 
@@ -234,11 +260,13 @@ export default function ProductDetailClient({ params }: ProductDetailPageProps) 
   };
 
   // Stock check helpers
-  const getStockForSize = (size: string) => {
+  const getStockForSize = useCallback((size: string) => {
+    if (!product) return 0;
     return product.stock_quantity[size] || 0;
-  };
+  }, [product]);
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = useCallback((e?: React.MouseEvent) => {
+    if (!product) return;
     if (!selectedSize) {
       toast.error('Please select a size first!');
       return;
@@ -277,7 +305,7 @@ export default function ProductDetailClient({ params }: ProductDetailPageProps) 
 
       // Find the main product image coordinates
       const imgEl = document.querySelector('.pdp-main-image img') || document.querySelector('img');
-      const sourceRect = imgEl ? imgEl.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
+      const sourceRect = imgEl ? imgEl.getBoundingClientRect() : (e ? e.currentTarget.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 });
 
       const startX = sourceRect.left + sourceRect.width / 2;
       const startY = sourceRect.top + sourceRect.height / 2;
@@ -292,9 +320,42 @@ export default function ProductDetailClient({ params }: ProductDetailPageProps) 
     }
 
     toast.cartSuccess(product.name, product.images[0] || '');
-  };
+  }, [selectedSize, product, quantity, addItem]);
+
+  // Dispatch PDP Info custom event to MobileNavbar capsule pill
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(
+      new CustomEvent('drftn-pdp-info', {
+        detail: {
+          active: showStickyBar,
+          price: product ? Math.round(product.price / 100) : 0,
+          size: selectedSize || '',
+          isAdding,
+          isOutOfStock: isCompletelyOutOfStock,
+        },
+      })
+    );
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent('drftn-pdp-info', {
+          detail: { active: false },
+        })
+      );
+    };
+  }, [showStickyBar, product, selectedSize, isAdding, isCompletelyOutOfStock]);
+
+  // Listen for Add To Bag trigger from MobileNavbar floating capsule button
+  useEffect(() => {
+    const handler = () => {
+      handleAddToCart();
+    };
+    window.addEventListener('drftn-trigger-add-to-cart', handler);
+    return () => window.removeEventListener('drftn-trigger-add-to-cart', handler);
+  }, [handleAddToCart]);
 
   const handleBuyNow = () => {
+    if (!product) return;
     if (!selectedSize) {
       toast.error('Please select a size first!');
       return;
@@ -319,6 +380,32 @@ export default function ProductDetailClient({ params }: ProductDetailPageProps) 
 
     router.push('/checkout');
   };
+
+  if (loading) {
+    return (
+      <div className="py-12 px-6 md:px-12 max-w-7xl mx-auto w-full">
+        <ProductDetailSkeleton />
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center py-20 px-6 space-y-4">
+        <Info className="w-16 h-16 text-white/40 stroke-[1]" />
+        <div>
+          <h2 className="text-2xl font-black uppercase tracking-wider text-brand-offwhite">PRODUCT NOT FOUND</h2>
+          <p className="text-zinc-500 text-xs mt-1">This drop might have ended or is currently archived.</p>
+        </div>
+        <Link
+          href="/shop"
+          className="btn-electric bg-brand-offwhite text-brand-black font-bold text-xs tracking-widest uppercase py-3.5 px-8 rounded shadow"
+        >
+          Return to Shop
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="py-8 md:py-12 px-6 md:px-12 max-w-7xl mx-auto w-full flex-1 flex flex-col">
@@ -527,19 +614,17 @@ export default function ProductDetailClient({ params }: ProductDetailPageProps) 
                   <button
                     onClick={handleAddToCart}
                     disabled={isAdding}
-                    className="btn-primary flex-1 relative overflow-hidden"
+                    className="btn-primary flex-1 relative overflow-hidden bg-white text-black hover:bg-zinc-200 active:scale-[0.98] transition-all"
                   >
-                    <span
-                      className={`absolute inset-0 bg-white transition-transform duration-300 origin-left ${isAdding ? 'scale-x-100' : 'scale-x-0'
-                        }`}
-                    />
-                    <span className={`relative z-10 flex items-center justify-center gap-2 ${isAdding ? 'text-black font-bold' : ''}`}>
+                    <span className="relative z-10 flex items-center justify-center gap-2 text-black font-extrabold">
                       {isAdding ? (
-                        <span className="animate-scale-in">✓</span>
+                        <span className="flex items-center gap-1.5 text-black">
+                          <span>✓</span> ADDED
+                        </span>
                       ) : (
                         <>
-                          <ShoppingBag className="w-4 h-4" />
-                          <span className="tracking-[0.15em] font-bold">ADD</span>
+                          <ShoppingBag className="w-4 h-4 text-black" />
+                          <span className="tracking-[0.15em] font-extrabold text-black">ADD</span>
                         </>
                       )}
                     </span>
@@ -550,6 +635,60 @@ export default function ProductDetailClient({ params }: ProductDetailPageProps) 
                   >
                     <span>Buy It Now</span>
                   </button>
+                </div>
+              )}
+            </div>
+
+            {/* Pincode Serviceability & 120-minute delivery estimator */}
+            <div className="bg-zinc-950 border border-zinc-900 rounded-md p-4 space-y-3 my-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Delivery Estimator</span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="Enter Delivery PIN Code"
+                  value={pincode}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setPincode(val);
+                    if (val.length === 6) {
+                      checkPincode(val);
+                    }
+                  }}
+                  className="bg-black border border-zinc-850 text-brand-offwhite text-xs px-3 py-2.5 rounded flex-1 focus:outline-none focus:border-zinc-700 placeholder-zinc-700 tracking-widest font-mono"
+                />
+                <button
+                  type="button"
+                  disabled={checkingEligibility || pincode.length !== 6}
+                  onClick={() => checkPincode(pincode)}
+                  className="bg-white hover:bg-zinc-200 text-black text-xs font-bold px-4 py-2.5 rounded transition-colors disabled:opacity-50"
+                >
+                  {checkingEligibility ? '...' : 'CHECK'}
+                </button>
+              </div>
+
+              {eligibilityResult && (
+                <div className="space-y-2 mt-2">
+                  {eligibilityResult.borzoEligible ? (
+                    <div className="flex items-center gap-2.5 bg-emerald-950/20 border border-emerald-900/30 px-3 py-2.5 rounded text-emerald-400 text-xs">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span>⚡ Get this in <strong>120 minutes</strong> — <strong>₹{eligibilityResult.extraCharge}</strong> extra</span>
+                    </div>
+                  ) : eligibilityResult.shiprocketAvailable ? (
+                    <div className="flex items-center gap-2 bg-zinc-900/40 border border-zinc-800/40 px-3 py-2.5 rounded text-zinc-400 text-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>
+                      <span>📦 Standard Delivery: Arriving in <strong>{eligibilityResult.estimatedStandardDays} business days</strong></span>
+                    </div>
+                  ) : (
+                    <div className="bg-rose-950/20 border border-rose-900/30 px-3 py-2.5 rounded text-rose-400 text-xs">
+                      ⚠️ Out of delivery service area.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -844,42 +983,7 @@ export default function ProductDetailClient({ params }: ProductDetailPageProps) 
           </div>
         </>
       )}
-      {/* Sticky Bottom Add-To-Bag Bar (Mobile Only) */}
-      {product && (
-        <div
-          className={`fixed bottom-0 inset-x-0 bg-[#0A0A0A]/95 backdrop-blur-md border-t border-zinc-900/60 px-6 py-4.5 flex items-center justify-between z-50 md:hidden transition-transform duration-300 ${
-            showStickyBar ? 'translate-y-0' : 'translate-y-full'
-          }`}
-        >
-          <div className="flex flex-col">
-            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider truncate max-w-[150px]">{product.name}</span>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-sm font-bold text-white">₹{Math.round(product.price / 100).toLocaleString('en-IN')}</span>
-              {selectedSize && (
-                <span className="text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-400">
-                  {selectedSize}
-                </span>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={handleAddToCart}
-            disabled={isAdding || isCompletelyOutOfStock}
-            className="bg-white text-black hover:bg-zinc-200 disabled:bg-zinc-900 disabled:text-zinc-600 disabled:border-zinc-800 disabled:cursor-not-allowed text-[10px] font-bold tracking-widest uppercase py-3 px-6 transition-all flex items-center gap-1.5"
-          >
-            {isCompletelyOutOfStock ? (
-              'OUT OF STOCK'
-            ) : isAdding ? (
-              'ADDING...'
-            ) : (
-              <>
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>ADD TO BAG</span>
-              </>
-            )}
-          </button>
-        </div>
-      )}
+      {/* End PDP Client */}
     </div>
   );
 }

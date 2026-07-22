@@ -28,6 +28,8 @@ export default function AdminSettings() {
           ...data.settings,
           free_shipping_threshold: data.settings.free_shipping_threshold / 100,
           default_shipping_charge: data.settings.default_shipping_charge / 100,
+          borzo_surcharge: data.settings.borzo_surcharge / 100,
+          borzo_free_threshold: data.settings.borzo_free_threshold / 100,
         });
         if (data.envStatus) {
           setEnvStatus(data.envStatus);
@@ -71,6 +73,8 @@ export default function AdminSettings() {
         ...settings,
         free_shipping_threshold: Math.round(settings.free_shipping_threshold * 100),
         default_shipping_charge: Math.round(settings.default_shipping_charge * 100),
+        borzo_surcharge: Math.round(settings.borzo_surcharge * 100),
+        borzo_free_threshold: Math.round(settings.borzo_free_threshold * 100),
       };
       
       const res = await fetch('/api/admin/settings', {
@@ -222,6 +226,76 @@ export default function AdminSettings() {
                 type="number"
                 name="default_shipping_charge"
                 value={settings.default_shipping_charge}
+                onChange={handleChange}
+                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Express Delivery Settings (Borzo) */}
+        <div className="bg-white border border-zinc-200/60 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-6 md:p-8">
+          <h2 className="text-lg font-bold text-zinc-900 mb-6 uppercase tracking-wider border-b border-zinc-100 pb-2">Express Delivery Settings (Borzo)</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-xs uppercase tracking-wider text-zinc-500 font-bold block">Bangalore Express Pincodes</label>
+              <input
+                type="text"
+                name="blr_pincode_ranges"
+                value={settings.blr_pincode_ranges}
+                onChange={handleChange}
+                placeholder="e.g. 560001-560300"
+                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-wider text-zinc-500 font-bold block">Express Surcharge (₹)</label>
+              <input
+                type="number"
+                name="borzo_surcharge"
+                value={settings.borzo_surcharge}
+                onChange={handleChange}
+                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-wider text-zinc-500 font-bold block">Free Express Threshold (₹)</label>
+              <input
+                type="number"
+                name="borzo_free_threshold"
+                value={settings.borzo_free_threshold}
+                onChange={handleChange}
+                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-wider text-zinc-500 font-bold block">Same-Day Cutoff Start Time (HH:MM)</label>
+              <input
+                type="text"
+                name="borzo_cutoff_start"
+                value={settings.borzo_cutoff_start}
+                onChange={handleChange}
+                placeholder="11:00"
+                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-wider text-zinc-500 font-bold block">Same-Day Cutoff End Time (HH:MM)</label>
+              <input
+                type="text"
+                name="borzo_cutoff_end"
+                value={settings.borzo_cutoff_end}
+                onChange={handleChange}
+                placeholder="16:00"
+                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg font-mono"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-xs uppercase tracking-wider text-zinc-500 font-bold block">Borzo Pickup Address</label>
+              <input
+                type="text"
+                name="borzo_pickup_address"
+                value={settings.borzo_pickup_address}
                 onChange={handleChange}
                 className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:border-zinc-900 transition-colors rounded-lg"
               />

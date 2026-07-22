@@ -11,10 +11,11 @@ import { Product, Category } from '@/types';
 import { useCartStore } from '@/lib/cartStore';
 import { useAnimationStore } from '@/lib/animationStore';
 import { toast } from '@/lib/toast';
-import HeroSection from '@/components/HeroSection';
-import DesktopHeroParallax from '@/components/DesktopHeroParallax';
-import RevealSection from '@/components/RevealSection';
+import HeroHoodieScene from '@/components/HeroHoodieScene';
+import DRFTNButton from '@/components/DRFTNButton';
 import AnnouncementTicker from '@/components/AnnouncementTicker';
+import BrandMarqueeTicker from '@/components/BrandMarqueeTicker';
+import BrandStorySection from '@/components/BrandStorySection';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /* ──────────────────────────────────────────
@@ -133,14 +134,14 @@ function ProductCard({
             onMouseMove={handleMouseMove}
             onMouseLeave={handlePointerLeave}
             data-cursor="product"
-            className={`product-image-hoverable relative overflow-hidden rounded-sm bg-[--drftn-gray-900] ${aspectClass} w-full`}
+            className={`product-image-hoverable relative overflow-hidden rounded-md md:rounded-sm bg-[--drftn-gray-900] ${aspectClass} w-full transition-all duration-300 border border-white/0 hover:border-white/10`}
           >
             <SignatureGallery
               images={displayImages}
               activeIndex={activeIdx}
               onChangeIndex={(idx) => setActiveIdx(idx)}
               aspectClass={aspectClass}
-              sizes="(max-width: 768px) 50vw, 25vw"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               enableDrag={true}
               imageWidth={800}
               overlayLeft={
@@ -196,21 +197,21 @@ function ProductCard({
             )}
           </div>
 
-          {/* Product Details with generous spacing and single baseline for pricing */}
-          <div className="pt-3 pb-6 flex flex-col text-left space-y-1">
-            <h3 className="text-xs font-display text-[--drftn-white] tracking-[0.08em] uppercase line-clamp-1">
+          {/* Product Details with tighter spacing on mobile */}
+          <div className="pt-2 pb-3 md:pt-3 md:pb-6 flex flex-col text-left space-y-0.5 md:space-y-1 px-1.5 md:px-0">
+            <h3 className="text-[10px] md:text-xs font-display text-[--drftn-white] tracking-[0.08em] uppercase line-clamp-1">
               {prod.name}
             </h3>
-            <div className="flex items-baseline gap-2 h-5 text-xs font-mono">
+            <div className="flex items-baseline gap-2 h-4 md:h-5 text-[10px] md:text-xs font-mono">
               <span className="text-[--drftn-white] font-medium">
                 ₹{(prod.price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
               </span>
               {prod.compare_price && prod.compare_price > prod.price && (
                 <>
-                  <span className="text-[10px] text-[--drftn-gray-500] line-through font-normal">
+                  <span className="text-[9px] md:text-[10px] text-[--drftn-gray-500] line-through font-normal">
                     ₹{(prod.compare_price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
                   </span>
-                  <span className="text-[10px] text-[--drftn-gray-500] font-normal tracking-wide">
+                  <span className="text-[9px] md:text-[10px] text-[--drftn-gray-500] font-normal tracking-wide">
                     -{Math.round(((prod.compare_price - prod.price) / prod.compare_price) * 100)}%
                   </span>
                 </>
@@ -282,6 +283,7 @@ const introLetterVariants = {
    MAIN PAGE — data logic unchanged, layout/styles upgraded
    ────────────────────────────────────────── */
 export default function Homepage() {
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -306,7 +308,7 @@ export default function Homepage() {
 
 
   const categoryRef = useRef<HTMLElement>(null);
-  const gridItems = getGridItems(featuredProducts.slice(0, 8));
+  const gridItems = getGridItems(featuredProducts.slice(0, 6));
   const featuredRef = useRef<HTMLElement>(null);
   const storyRef = useRef<HTMLElement>(null);
   const igRef = useRef<HTMLElement>(null);
@@ -316,7 +318,8 @@ export default function Homepage() {
     async function loadData() {
       try {
         const [prods, cats] = await Promise.all([dbService.getProducts(), dbService.getCategories()]);
-        setFeaturedProducts(prods.filter((p) => p.is_featured).slice(0, 4));
+        setAllProducts(prods);
+        setFeaturedProducts(prods.slice(0, 12));
         setCategories(cats.slice(0, 4));
       } catch (err) {
         console.error('Failed to load home page data:', err);
@@ -405,87 +408,59 @@ export default function Homepage() {
 
 
       {/* ═══════════════════════════════════════════
-          1. HERO — CINEMATIC WIPE & original copy
-          Mobile: existing HeroSection (untouched)
-          Desktop (≥768px): layered parallax hero
+          SOLE LANDING HERO VIEW — GSAP Hoodie Scene
           ═══════════════════════════════════════════ */}
-
-      {/* Mobile hero — hidden on md+ */}
-      <div className="md:hidden">
-        <HeroSection />
-      </div>
-
-      {/* Desktop parallax hero — hidden below md */}
-      <div className="hidden md:block">
-        <DesktopHeroParallax />
-      </div>
+      <HeroHoodieScene products={allProducts} />
 
       {/* ═══════════════════════════════════════════
-          NEW: LIGHT TO DARK REVEAL SECTION
+          BRAND STORY SCROLL FLOW
           ═══════════════════════════════════════════ */}
-      <RevealSection />
+      {/* 1. Continuous Marquee Ticker Connector */}
+      <BrandMarqueeTicker />
+
+      {/* 2. Compact Scroll-Assembled Brand Story Section (~50-60vh) */}
+      <BrandStorySection />
 
       {/* ═══════════════════════════════════════════
-          2. CATEGORIES (DEPARTMENTS) — checkpoint 1
+          2. CATEGORIES (DEPARTMENTS) — COLLECTIONS
           ═══════════════════════════════════════════ */}
       <section
         ref={categoryRef}
-        className="pt-12 pb-16 md:pt-16 md:pb-20 w-full overflow-hidden text-brand-offwhite relative z-10"
+        className="pt-2 pb-8 md:pt-16 md:pb-20 w-full overflow-hidden text-brand-offwhite relative z-10"
         aria-labelledby="categories-heading"
       >
 
-        {/* Header */}
+        {/* Ultra-Luxurious Header */}
         <motion.div
           initial={{ opacity: 0.3, filter: 'blur(4px)', y: 16 }}
           whileInView={{
             opacity: 1,
             filter: 'blur(0px)',
             y: 0,
-            textShadow: [
-              '0 0 0px rgba(255,255,255,0)',
-              '0 0 15px rgba(255,255,255,0.4)',
-              '0 0 0px rgba(255,255,255,0)',
-            ],
           }}
           viewport={{ once: true, margin: '-20%' }}
           transition={{
             opacity: { type: 'spring', stiffness: 100, damping: 15 },
             y: { type: 'spring', stiffness: 100, damping: 15 },
             filter: { duration: 0.5 },
-            textShadow: { duration: 0.4, delay: 0.35 }
           }}
-          className="flex items-baseline justify-between mb-12 md:mb-16 px-6 md:px-12 max-w-screen-2xl mx-auto w-full animate-telemetry-hud"
+          className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 md:mb-10 px-4 sm:px-8 md:px-12 max-w-screen-2xl mx-auto w-full"
         >
-          <div className="relative pl-6 py-2 text-left">
-            {/* Corner Brackets */}
-            <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t border-l border-white/20" />
-            <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b border-l border-white/20" />
-
+          <div className="flex flex-col text-left">
             <h2
               id="categories-heading"
-              className="text-white leading-none font-display uppercase text-4xl md:text-7xl tracking-tighter"
+              className="text-white leading-none font-display font-black uppercase text-4xl sm:text-6xl md:text-8xl tracking-tighter drop-shadow-md"
             >
               COLLECTIONS
             </h2>
           </div>
 
-          <Link
-            href="/shop"
-            className="flex items-center gap-3 border border-[#2A2A2A] hover:border-white bg-[#121212]/50 hover:bg-white/5 px-4 py-2.5 rounded-sm transition-all duration-300 group"
-          >
-            <span className="text-[10px] font-bold text-white tracking-[0.15em] uppercase font-mono">
-              EXPLORE ALL
-            </span>
-            {/* Visual telemetry dashboard gauge */}
-            <div className="flex items-center gap-0.5 font-mono text-[9px] text-white">
-              <span className="w-1.5 h-2.5 bg-white rounded-[1px] animate-pulse" />
-              <span className="w-1.5 h-1.5 bg-zinc-800 rounded-[1px]" />
-              <span className="w-1.5 h-1.5 bg-zinc-800 rounded-[1px]" />
-            </div>
-          </Link>
+          <DRFTNButton href="/shop" variant="outline" className="self-start md:self-end">
+            EXPLORE ALL DROPS
+          </DRFTNButton>
         </motion.div>
 
-        {/* Product Cards Grid (Rebuilt as a clean, image-forward product grid) */}
+        {/* Curated Product Cards Grid */}
         {featuredProducts.length > 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -495,7 +470,7 @@ export default function Homepage() {
             className="w-full"
             style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 650px' }}
           >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-[2px] px-4 md:px-12 max-w-screen-2xl mx-auto w-full">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-[2px] px-4 md:px-12 max-w-screen-2xl mx-auto w-full">
               {gridItems.map((item, idx) => {
                 if (item.type === 'product') {
                   return (
@@ -508,32 +483,61 @@ export default function Homepage() {
                     </div>
                   );
                 } else {
-                  return (
-                    <Link
-                      key={item.id}
-                      href={`/shop?category=${item.category}`}
-                      data-cursor="banner"
-                      className={`${item.spanClass} product-image-hoverable relative overflow-hidden group flex flex-col justify-end p-8 md:p-12 text-left`}
-                    >
-                      <Image
-                        src={item.image}
-                        alt=""
-                        fill
-                        className="object-cover transition-transform duration-[800ms] ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-[1.02] brightness-[0.45]"
-                      />
-                      {/* Typographic contrast title */}
-                      <div className="relative z-10 space-y-2">
-                        <span className="text-[10px] font-mono font-bold tracking-[0.25em] text-brand-amber uppercase block">
-                          {item.subtitle}
-                        </span>
-                        <h3 className="text-3xl md:text-6xl font-display font-black uppercase tracking-tighter text-white leading-none">
-                          {item.title}
-                        </h3>
-                      </div>
-                    </Link>
-                  );
-                }
-              })}
+                    return (
+                      <Link
+                        key={item.id}
+                        href={`/shop?category=${item.category}`}
+                        data-cursor="banner"
+                        className={`${item.spanClass} product-image-hoverable relative overflow-hidden group flex flex-col justify-end p-8 md:p-12 text-left`}
+                      >
+                        <Image
+                          src={item.image}
+                          alt=""
+                          fill
+                          className="object-cover transition-transform duration-[800ms] ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-[1.02] brightness-[0.45]"
+                        />
+                        <div className="relative z-10 space-y-2">
+                          <span className="text-[10px] font-mono font-bold tracking-[0.25em] text-brand-amber uppercase block">
+                            {item.subtitle}
+                          </span>
+                          <h3 className="text-3xl md:text-6xl font-display font-black uppercase tracking-tighter text-white leading-none">
+                            {item.title}
+                          </h3>
+                        </div>
+                      </Link>
+                    );
+                  }
+                })}
+            </div>
+
+            {/* ── ULTRA-LUXURIOUS VAULT ARCHIVE TEASER BANNER ── */}
+            <div className="mt-10 px-4 md:px-12 max-w-screen-2xl mx-auto w-full">
+              <div className="relative overflow-hidden rounded-none border border-white/20 bg-gradient-to-r from-zinc-950 via-zinc-900 to-black p-8 sm:p-10 md:p-14 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 group hover:border-white/40 transition-colors duration-500">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(255,255,255,0.08)_0%,transparent_70%)] pointer-events-none" />
+
+                <div className="relative z-10 space-y-2 max-w-xl text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    <span className="text-[10px] font-mono font-bold tracking-[0.25em] text-zinc-400 uppercase">
+                      THE DRFTN ARCHIVE // 2026 DROPS
+                    </span>
+                  </div>
+
+                  <h3 className="text-2xl sm:text-4xl md:text-5xl font-display font-black uppercase text-white tracking-tighter">
+                    UNLOCK THE COMPLETE COLLECTION
+                  </h3>
+
+                  <p className="text-xs font-body font-medium text-zinc-400 max-w-md leading-relaxed">
+                    Heavyweight 300+ GSM tees, acid-washed stitched hoodies, and limited edition drops. Free shipping across India.
+                  </p>
+                </div>
+
+                <div className="relative z-10 w-full sm:w-auto">
+                  <DRFTNButton href="/shop" variant="primary" fullWidth className="sm:w-auto">
+                    VIEW ALL PRODUCTS
+                  </DRFTNButton>
+                </div>
+              </div>
             </div>
           </motion.div>
         ) : (

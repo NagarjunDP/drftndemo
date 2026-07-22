@@ -14,7 +14,7 @@ export default function WhatsAppButton() {
       href="https://wa.me/917406164512?text=Hey%20DRFTN%20CLOTHING!%20I'm%20interested%20in%20your%20streetwear%20collection."
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-24 md:bottom-8 right-6 z-40 w-12 h-12 bg-[#0A0A0A] border border-zinc-800 hover:border-brand-amber text-brand-offwhite rounded-full shadow-md hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center group"
+      className="fixed bottom-5 right-4 sm:bottom-8 sm:right-6 z-[2400] w-11 h-11 sm:w-12 sm:h-12 bg-[#0A0A0A] border border-zinc-800 hover:border-brand-amber text-brand-offwhite rounded-full shadow-md hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center group"
       aria-label="Chat on WhatsApp"
     >
       <svg

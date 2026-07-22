@@ -2,11 +2,28 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { eq, inArray } from 'drizzle-orm';
+import { rateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    // Rate limit per IP: max 10 attempts per 10 minutes (600,000 ms)
+    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const rateLimitResult = await rateLimit(`ratelimit:track:${ip}`, 10, 600000);
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: `Too many tracking attempts. Please retry in ${rateLimitResult.reset} seconds.` },
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': String(rateLimitResult.reset),
+          },
+        }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const orderNumber = searchParams.get('orderNumber');
     const phone = searchParams.get('phone'); // Can be full number or last 4 digits
@@ -78,6 +95,10 @@ export async function GET(request: Request) {
     const isLocalRegion = pincode.startsWith('5');
     const estDaysText = isLocalCity ? '1-2 business days' : isLocalRegion ? '2-3 business days' : '4-6 business days';
 
+    // 4. Fetch tracking status from Firestore
+    const { firestoreService } = await import('@/lib/firestore');
+    const tracking = await firestoreService.getDoc('order_tracking', order.id);
+
     return NextResponse.json({
       order_number: order.order_number,
       order_status: order.order_status,
@@ -87,9 +108,14 @@ export async function GET(request: Request) {
       subtotal: order.subtotal,
       shipping_charge: order.shipping_charge,
       discount_amount: order.discount_amount || 0,
-      tracking_number: order.tracking_number || null,
-      courier_partner: order.courier_partner || null,
+      tracking_number: tracking?.tracking_number || order.tracking_number || null,
+      courier_partner: tracking?.courier_provider === 'borzo' ? 'Borzo Express' : (order.courier_partner || null),
       estimated_delivery_text: estDaysText,
+      tracking_history: tracking ? {
+        status: tracking.status,
+        status_label: tracking.status_label,
+        updated_at: tracking.updated_at,
+      } : null,
     });
 
   } catch (error) {

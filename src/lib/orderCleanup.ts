@@ -1,139 +1,115 @@
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { eq, lt, and, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { firestoreService } from '@/lib/firestore';
 
 export async function cleanupExpiredOrders() {
   const now = new Date();
+  let expiredCount = 0;
+  let abandonedCount = 0;
+  let hardDeletedCount = 0;
   
   try {
-    // Find all orders that are still pending_payment and past their hold_expires_at
-    const expiredOrders = await db
-      .select()
-      .from(schema.orders)
-      .where(
-        and(
-          eq(schema.orders.order_status, 'pending_payment'),
-          lt(schema.orders.holdExpiresAt, now)
-        )
-      );
+    // 1. Fetch checkouts from Firestore
+    const rawCheckouts = await firestoreService.queryDocs('pending_checkouts', {});
+    const checkouts = rawCheckouts.filter((c: any) => c.status === 'pending' || c.status === 'expired');
 
-    if (expiredOrders.length > 0) {
-      console.log(`Found ${expiredOrders.length} expired pending payment orders. Releasing stock...`);
+    console.log(`[Order Cleanup] Processing ${checkouts.length} active/expired checkouts from Firestore...`);
 
-      for (const order of expiredOrders) {
-        let isExpired = false;
-        await db.transaction(async (tx: any) => {
-          // Re-verify order status inside transaction
-          const [oRecord] = await tx
-            .select()
-            .from(schema.orders)
-            .where(eq(schema.orders.id, order.id))
-            .for('update');
+    // 2. Filter and process checkouts
+    const { releaseUnitSafe } = await import('@/lib/stock-gate');
+    const { sendAbandonedCartEmail, sendPaymentPendingReminderEmail } = await import('@/lib/email');
 
-          if (oRecord && oRecord.order_status === 'pending_payment') {
-            // 1. Release stocks back
-            for (const item of oRecord.items) {
-              const [pRecord] = await tx
-                .select({ stock_quantity: schema.products.stock_quantity })
-                .from(schema.products)
-                .where(eq(schema.products.id, item.id))
-                .for('update');
+    for (const c of checkouts) {
+      const holdExpires = c.hold_expires_at ? new Date(c.hold_expires_at) : null;
+      const created = c.created_at ? new Date(c.created_at) : new Date(0);
 
-              if (pRecord) {
-                const currentStock = { ...pRecord.stock_quantity };
-                if (currentStock[item.size] !== undefined) {
-                  currentStock[item.size] = (currentStock[item.size] || 0) + item.quantity;
-                  await tx
-                    .update(schema.products)
-                    .set({ stock_quantity: currentStock })
-                    .where(eq(schema.products.id, item.id));
-                }
-              }
-            }
+      // A. Send Payment Pending Reminder Email after 5 minutes if still pending
+      const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+      if (c.status === 'pending' && created < fiveMinsAgo && !c.reminderSent) {
+        const minsLeft = holdExpires ? Math.max(1, Math.round((holdExpires.getTime() - Date.now()) / 60000)) : 5;
+        try {
+          await sendPaymentPendingReminderEmail({
+            orderNumber: c.order_number,
+            customerName: c.customer_name,
+            customerEmail: c.customer_email,
+            items: c.items,
+            totalPaise: c.total,
+            minutesRemaining: minsLeft,
+          });
 
-            // 2. Decrement discount code usage count if a code was used
-            if (oRecord.discount_code) {
-              await tx
-                .update(schema.discountCodes)
-                .set({ used_count: sql`GREATEST(0, ${schema.discountCodes.used_count} - 1)` })
-                .where(eq(schema.discountCodes.code, oRecord.discount_code));
-            }
+          await firestoreService.updateDoc('pending_checkouts', c.id, {
+            reminderSent: true,
+            updated_at: now.toISOString(),
+          });
 
-            // 3. Mark order as expired
-            await tx
-              .update(schema.orders)
-              .set({
-                order_status: 'expired',
-                updated_at: new Date()
-              })
-              .where(eq(schema.orders.id, order.id));
+          console.log(`[Order Cleanup] Sent payment reminder email to ${c.customer_email} for checkout ${c.order_number}`);
+        } catch (emailErr) {
+          console.error(`[Order Cleanup] Failed to send payment reminder email for ${c.order_number}:`, emailErr);
+        }
+      }
 
-            console.log(`Order ${order.order_number} has expired. Stock released in Postgres.`);
-            isExpired = true;
-          }
+      // B. Check if the checkout hold has expired
+      let isCurrentlyExpired = c.status === 'expired';
+      if (c.status === 'pending' && holdExpires && holdExpires < now) {
+        // Mark as expired in Firestore
+        await firestoreService.updateDoc('pending_checkouts', c.id, {
+          status: 'expired',
+          updated_at: now.toISOString(),
         });
 
-        // Release stock in Redis if it was actually expired in Postgres
-        if (isExpired) {
-          try {
-            const { releaseUnitSafe } = await import('@/lib/stock-gate');
-            for (const item of order.items) {
-              await releaseUnitSafe(item.id, item.size, item.quantity ?? 1);
-            }
-          } catch (redisErr) {
-            console.error('Failed to release stock gate in cleanupExpiredOrders:', redisErr);
+        // Release stocks back in Redis stock gate
+        try {
+          for (const item of c.items) {
+            await releaseUnitSafe(item.id || item.productId, item.size, item.quantity ?? 1);
           }
+          console.log(`[Order Cleanup] Released Redis stock for expired checkout ${c.order_number}`);
+        } catch (redisErr) {
+          console.error(`[Order Cleanup] Failed to release Redis stock for checkout ${c.order_number}:`, redisErr);
+        }
+
+        expiredCount++;
+        isCurrentlyExpired = true;
+      }
+      
+      // C. Send Abandoned Cart recovery email after 30 minutes
+      const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+      if ((isCurrentlyExpired || c.status === 'pending') && created < thirtyMinsAgo && !c.abandonedEmailSent) {
+        try {
+          await sendAbandonedCartEmail({
+            customerName: c.customer_name,
+            customerEmail: c.customer_email,
+            items: c.items,
+            totalPaise: c.total,
+            orderNumber: c.order_number,
+          });
+
+          // Mark as sent in Firestore ONLY on successful send!
+          await firestoreService.updateDoc('pending_checkouts', c.id, {
+            abandonedEmailSent: true,
+            updated_at: now.toISOString(),
+          });
+
+          console.log(`[Order Cleanup] Sent abandoned cart email to ${c.customer_email} for checkout ${c.order_number}`);
+          abandonedCount++;
+        } catch (emailErr) {
+          console.error(`[Order Cleanup] Failed to send abandoned cart email for ${c.order_number}:`, emailErr);
         }
       }
     }
 
-    // 3b. Send Payment Pending Reminders for prepaid orders with <= 5 mins remaining (50% of the 10m TTL)
-    let remindersSentCount = 0;
-    try {
-      const activePendingPrepaid = await db
-        .select()
-        .from(schema.orders)
-        .where(
-          and(
-            eq(schema.orders.order_status, 'pending_payment'),
-            eq(schema.orders.payment_type, 'prepaid'),
-            eq(schema.orders.reminderSent, false)
-          )
-        );
+    // 3. Hard-delete checkouts older than 24 hours (TTL clean up to preserve space)
+    // Query other states (e.g. expired/failed checkouts) to clean them up as well
+    const allCheckouts = await firestoreService.queryDocs('pending_checkouts', {});
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      const reminderThresholdMs = 5 * 60 * 1000; // 5 minutes remaining (50% elapsed)
-      const { sendPaymentPendingReminderEmail } = await import('@/lib/email');
-
-      for (const order of activePendingPrepaid) {
-        if (order.holdExpiresAt) {
-          const msRemaining = order.holdExpiresAt.getTime() - now.getTime();
-          
-          if (msRemaining > 0 && msRemaining <= reminderThresholdMs) {
-            // Mark as sent in DB immediately to prevent concurrent duplicate triggers
-            await db
-              .update(schema.orders)
-              .set({ reminderSent: true, updated_at: new Date() })
-              .where(eq(schema.orders.id, order.id));
-
-            remindersSentCount++;
-
-            const minutesRemaining = Math.max(1, Math.ceil(msRemaining / 60000));
-            sendPaymentPendingReminderEmail({
-              orderNumber: order.order_number,
-              customerName: order.customer_name,
-              customerEmail: order.customer_email,
-              items: order.items as any[],
-              totalPaise: order.total,
-              minutesRemaining
-            }).catch((err) => console.error(`Failed to send reminder email for order ${order.order_number}:`, err));
-          }
-        }
+    for (const c of allCheckouts) {
+      const created = c.created_at ? new Date(c.created_at) : new Date(0);
+      if (created < oneDayAgo) {
+        await firestoreService.deleteDoc('pending_checkouts', c.id);
+        console.log(`[Order Cleanup] Hard-deleted old checkout doc ${c.order_number} (24h TTL)`);
+        hardDeletedCount++;
       }
-      if (remindersSentCount > 0) {
-        console.log(`Sent ${remindersSentCount} payment-pending reminders.`);
-      }
-    } catch (reminderErr) {
-      console.error('Failed to process payment reminders:', reminderErr);
     }
 
     // 4. Reconciliation Safety Net (Heals drift between Redis and Postgres)
@@ -153,12 +129,17 @@ export async function cleanupExpiredOrders() {
         }
       }
     } catch (reconErr) {
-      console.error('Reconciliation safety net error:', reconErr);
+      console.error('[Order Cleanup] Reconciliation safety net error:', reconErr);
     }
 
-    return { count: expiredOrders.length, remindersSent: remindersSentCount };
+    return { 
+      expiredCheckouts: expiredCount, 
+      abandonedEmailsSent: abandonedCount, 
+      hardDeletedCheckouts: hardDeletedCount 
+    };
+
   } catch (error) {
-    console.error('Error cleaning up expired orders:', error);
+    console.error('[Order Cleanup] Error cleaning up expired checkouts:', error);
     throw error;
   }
 }

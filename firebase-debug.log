@@ -1,0 +1,36 @@
+[debug] [2026-07-21T13:54:15.708Z] ----------------------------------------------------------------------
+[debug] [2026-07-21T13:54:15.710Z] Command:       /opt/homebrew/Cellar/node/23.11.0/bin/node /Users/nagarjundp/.npm/_npx/ba4f1959e38407b5/node_modules/.bin/firebase firestore:databases:list
+[debug] [2026-07-21T13:54:15.710Z] CLI Version:   15.24.0
+[debug] [2026-07-21T13:54:15.710Z] Platform:      darwin
+[debug] [2026-07-21T13:54:15.710Z] Node Version:  v23.11.0
+[debug] [2026-07-21T13:54:15.710Z] Detected Agent: antigravity
+[debug] [2026-07-21T13:54:15.710Z] Time:          Tue Jul 21 2026 19:24:15 GMT+0530 (India Standard Time)
+[debug] [2026-07-21T13:54:15.710Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-21T13:54:15.716Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-07-21T13:54:18.808Z] Checked if tokens are valid: false, expires at: 1720619699580
+[debug] [2026-07-21T13:54:18.808Z] Checked if tokens are valid: false, expires at: 1720619699580
+[debug] [2026-07-21T13:54:18.808Z] > refreshing access token with scopes: []
+[debug] [2026-07-21T13:54:18.809Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-07-21T13:54:18.809Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-07-21T13:54:23.593Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-07-21T13:54:23.593Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-07-21T13:54:26.115Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-07-21T13:54:26.115Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-07-21T13:54:26.115Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/null/databases [none]
+[debug] [2026-07-21T13:54:30.725Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/null/databases 401
+[debug] [2026-07-21T13:54:30.725Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/null/databases {"error":{"code":401,"message":"Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.","status":"UNAUTHENTICATED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"ACCESS_TOKEN_TYPE_UNSUPPORTED","metadata":{"service":"firestore.googleapis.com","method":"google.firestore.admin.v1.FirestoreAdmin.ListDatabases"}}]}}
+[debug] [2026-07-21T13:54:30.725Z] Got a 401 Unauthenticated error for a call that required authentication. Refreshing tokens.
+[debug] [2026-07-21T13:54:30.725Z] Checked if tokens are valid: false, expires at: 1720619699580
+[debug] [2026-07-21T13:54:30.725Z] Checked if tokens are valid: false, expires at: 1720619699580
+[debug] [2026-07-21T13:54:30.726Z] > refreshing access token with scopes: []
+[debug] [2026-07-21T13:54:30.727Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-07-21T13:54:30.727Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-07-21T13:54:36.589Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-07-21T13:54:36.589Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-07-21T13:54:41.596Z] Error: Timed out.
+    at Timeout._onTimeout (/Users/nagarjundp/.npm/_npx/ba4f1959e38407b5/node_modules/firebase-tools/lib/utils.js:296:49)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+[error] 
+[error] Error: An unexpected error has occurred.
