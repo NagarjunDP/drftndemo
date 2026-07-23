@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { v2 as cloudinary } from 'cloudinary';
 
+export const maxDuration = 60;
+
 // Configure Cloudinary Node SDK using server environment variables
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,

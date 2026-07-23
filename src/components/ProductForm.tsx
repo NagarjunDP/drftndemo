@@ -378,48 +378,156 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     addToast(`${validUrls.length} image URL(s) added to gallery`, 'success');
   };
 
-  // Upload transparent cutout blob to server-side Cloudinary route
+  // Helper to optimize and downscale transparent cutout blob to prevent payload size errors
+  const optimizeTransparentBlob = async (rawBlob: Blob, maxDim = 1600): Promise<Blob> => {
+    try {
+      const img = new Image();
+      const url = URL.createObjectURL(rawBlob);
+      img.src = url;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load cutout image'));
+      });
+      URL.revokeObjectURL(url);
+
+      let width = img.naturalWidth || img.width;
+      let height = img.naturalHeight || img.height;
+
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return rawBlob;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const optimizedBlob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((b) => resolve(b), 'image/png');
+      });
+
+      return optimizedBlob || rawBlob;
+    } catch (err) {
+      console.warn('[optimizeTransparentBlob error]:', err);
+      return rawBlob;
+    }
+  };
+
+  // Upload transparent cutout blob to server route with direct Cloudinary fallback
   const uploadBgRemovedImage = async (blob: Blob, fileName: string) => {
     setIsUploading(true);
     setBgRemovalStatus('Enhancing & uploading...');
     setUploadError(null);
 
     try {
-      const uploadFormData = new FormData();
-      uploadFormData.append('file', blob, `bg-removed-${fileName}`);
+      // 1. Optimize transparent blob on canvas (max 1600px) to prevent payload size errors
+      const optimizedBlob = await optimizeTransparentBlob(blob, 1600);
 
-      const uploadRes = await fetch('/api/admin/products/upload-image', {
-        method: 'POST',
-        body: uploadFormData,
-      });
+      let secureUrl: string | null = null;
 
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) {
-        throw new Error(uploadData.error || 'Cloudinary upload failed');
+      // 2. Attempt primary upload via server-side route
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', optimizedBlob, `bg-removed-${fileName}`);
+
+        const uploadRes = await fetch('/api/admin/products/upload-image', {
+          method: 'POST',
+          body: uploadFormData,
+        });
+
+        const resText = await uploadRes.text();
+        let uploadData: any;
+        try {
+          uploadData = JSON.parse(resText);
+        } catch {
+          console.warn('[uploadBgRemovedImage] Server route returned non-JSON response:', resText.slice(0, 100));
+        }
+
+        if (uploadRes.ok && uploadData?.secure_url) {
+          secureUrl = uploadData.secure_url;
+        }
+      } catch (serverErr) {
+        console.warn('[uploadBgRemovedImage] Server route error, attempting direct Cloudinary upload:', serverErr);
       }
 
-      const secureUrl = uploadData.secure_url;
+      // 3. Fallback: Direct signed upload to Cloudinary if server route failed
       if (!secureUrl) {
-        throw new Error('No secure_url returned from server upload route');
+        setBgRemovalStatus('Uploading directly to Cloudinary...');
+        const timestamp = Math.round(Date.now() / 1000);
+        const folder = 'drftn-products';
+
+        const signRes = await fetch('/api/admin/cloudinary-sign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ params: { timestamp, folder } }),
+        });
+
+        if (!signRes.ok) {
+          throw new Error('Cloudinary server signing error');
+        }
+
+        const signData = await signRes.json();
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+        if (!cloudName) {
+          throw new Error('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME is not configured');
+        }
+
+        const directFormData = new FormData();
+        directFormData.append('file', optimizedBlob, `bg-removed-${fileName}`);
+        directFormData.append('api_key', signData.apiKey);
+        directFormData.append('timestamp', String(timestamp));
+        directFormData.append('signature', signData.signature);
+        directFormData.append('folder', folder);
+
+        const directRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+          method: 'POST',
+          body: directFormData,
+        });
+
+        const directText = await directRes.text();
+        let directData: any;
+        try {
+          directData = JSON.parse(directText);
+        } catch {
+          throw new Error(`Direct Cloudinary upload failed (HTTP ${directRes.status}): ${directText.slice(0, 100)}`);
+        }
+
+        if (!directRes.ok || !directData.secure_url) {
+          throw new Error(directData?.error?.message || `Direct upload failed (HTTP ${directRes.status})`);
+        }
+
+        const rawUrl = directData.secure_url;
+        secureUrl = rawUrl.replace('/upload/', '/upload/f_auto,q_auto,e_improve,e_sharpen:60/');
       }
 
-      // Auto-populate into Paste Cloudinary URLs input row
+      // 4. Auto-populate into Paste Cloudinary URLs input row
       setUrlPasteInputs(prev => {
         if (prev.length === 0 || (prev.length === 1 && !prev[0].trim())) {
-          return [secureUrl];
+          return [secureUrl!];
         }
         if (!prev[0].trim()) {
           const next = [...prev];
-          next[0] = secureUrl;
+          next[0] = secureUrl!;
           return next;
         }
         if (!prev[prev.length - 1].trim()) {
           const next = [...prev];
-          next[next.length - 1] = secureUrl;
+          next[next.length - 1] = secureUrl!;
           return next;
         }
         if (prev.length < 8) {
-          return [...prev, secureUrl];
+          return [...prev, secureUrl!];
         }
         return prev;
       });
@@ -428,7 +536,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
 
       // Auto-trigger description generation if first image
       if (!hasGeneratedDescription) {
-        generateDescription(blob);
+        generateDescription(optimizedBlob);
         setHasGeneratedDescription(true);
       }
 

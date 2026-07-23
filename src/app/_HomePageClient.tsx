@@ -17,79 +17,48 @@ import AnnouncementTicker from '@/components/AnnouncementTicker';
 import BrandMarqueeTicker from '@/components/BrandMarqueeTicker';
 import BrandStorySection from '@/components/BrandStorySection';
 import { motion, AnimatePresence } from 'framer-motion';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 /* ──────────────────────────────────────────
-   PRODUCT CARD (Scrub gallery & visual polish)
+   STOREFRONT TILE (Editorial Product Showcase Tile)
    ────────────────────────────────────────── */
-function ProductCard({
-  prod,
+function StorefrontTile({
+  product,
+  isHero,
   onQuickAdd,
-  aspectClass = 'aspect-[4/5]',
-  showActions = false,
-  index = 0
 }: {
-  prod: Product;
+  product: Product;
+  isHero: boolean;
   onQuickAdd: (e: React.MouseEvent, p: Product) => void;
-  aspectClass?: string;
-  showActions?: boolean;
-  index?: number;
 }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [touchActive, setTouchActive] = useState(false);
+  const touchStartX = useRef<number>(0);
   const [isAdding, setIsAdding] = useState(false);
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [hasInteracted, setHasInteracted] = useState(false);
-  const cardRef = React.useRef<HTMLDivElement>(null);
-  const animationFrameId = React.useRef<number | null>(null);
 
-  const isOutOfStock = prod.sizes.every((s) => (prod.stock_quantity[s] || 0) === 0);
+  const images = product.images || [];
+  const primaryImage = images[0] || 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800';
+  const secondaryImage = images[1];
+  const hasSecondImage = Boolean(secondaryImage);
 
-  // Restrict homepage teaser cards to max 3 images (hero + detail + texture)
-  const displayImages = prod.images.slice(0, 3);
-  const imageCount = displayImages.length;
+  const isOutOfStock = product.sizes.every((s) => (product.stock_quantity[s] || 0) === 0);
+  const discountPercent =
+    product.compare_price && product.compare_price > product.price
+      ? Math.round(((product.compare_price - product.price) / product.compare_price) * 100)
+      : null;
 
-  const handlePointerMove = (clientX: number) => {
-    if (!cardRef.current || imageCount <= 1 || isOutOfStock) return;
-
-    if (!hasInteracted) {
-      setHasInteracted(true);
-    }
-
-    if (animationFrameId.current) {
-      cancelAnimationFrame(animationFrameId.current);
-    }
-
-    animationFrameId.current = requestAnimationFrame(() => {
-      const rect = cardRef.current!.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const pct = Math.max(0, Math.min(1, x / rect.width));
-      const nextIdx = Math.min(imageCount - 1, Math.floor(pct * imageCount));
-      setActiveIdx(nextIdx);
-    });
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    handlePointerMove(e.clientX);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length > 0) {
-      handlePointerMove(e.touches[0].clientX);
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!hasSecondImage) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(deltaX) > 20) {
+      setTouchActive((prev) => !prev);
     }
   };
-
-  const handlePointerLeave = () => {
-    if (animationFrameId.current) {
-      cancelAnimationFrame(animationFrameId.current);
-    }
-    setActiveIdx(0);
-  };
-
-  React.useEffect(() => {
-    return () => {
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-      }
-    };
-  }, []);
 
   const handleQuickAddClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -97,130 +66,132 @@ function ProductCard({
     if (isAdding || isOutOfStock) return;
     setIsAdding(true);
     setTimeout(() => setIsAdding(false), 900);
-    onQuickAdd(e, prod);
-  };
-
-  // Stagger reveal on viewport entry
-  const cardVariants = {
-    hidden: { opacity: 0, y: 16 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: { duration: 0.4, ease: 'easeOut' as const, delay: index * 0.08 }
-    }
+    onQuickAdd(e, product);
   };
 
   return (
-    <motion.div
-      variants={cardVariants}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: '-10%' }}
-      className="w-full"
+    <div
+      className={`showcase-tile group flex flex-col bg-transparent w-full text-left relative ${
+        isHero ? 'col-span-2 row-span-2 md:col-span-2 md:row-span-2' : 'col-span-1 md:col-span-1'
+      }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <Link
-        href={`/shop/${prod.slug}`}
-        className="group flex flex-col bg-transparent text-left w-full relative"
-        aria-label={`View ${prod.name} — ₹${(prod.price / 100).toLocaleString('en-IN')}`}
+        href={`/shop/${product.slug}`}
+        className="flex flex-col w-full h-full group"
+        aria-label={`View ${product.name} — ₹${(product.price / 100).toLocaleString('en-IN')}`}
       >
-        <motion.div
-          whileTap={{ scale: 0.97 }}
-          transition={{ duration: 0.15 }}
-          className="flex flex-col w-full text-left"
+        <div
+          className={`product-card relative overflow-hidden rounded-sm bg-zinc-950 w-full border border-white/10 group-hover:border-white/30 transition-colors duration-300 ${
+            isHero ? 'aspect-[4/5]' : 'aspect-[3/4]'
+          }`}
         >
-          {/* Image Container */}
-          <div
-            ref={cardRef}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handlePointerLeave}
-            data-cursor="product"
-            className={`product-image-hoverable relative overflow-hidden rounded-md md:rounded-sm bg-[--drftn-gray-900] ${aspectClass} w-full transition-all duration-300 border border-white/0 hover:border-white/10`}
-          >
-            <SignatureGallery
-              images={displayImages}
-              activeIndex={activeIdx}
-              onChangeIndex={(idx) => setActiveIdx(idx)}
-              aspectClass={aspectClass}
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              enableDrag={true}
-              imageWidth={800}
-              overlayLeft={
-                isOutOfStock ? (
-                  <span className="text-[10px] font-mono font-medium tracking-[0.12em] text-[--drftn-white]/50 uppercase">
-                    GONE
-                  </span>
-                ) : prod.is_featured ? (
-                  <span className="text-[10px] font-mono font-medium tracking-[0.16em] text-[--drftn-white]/85 uppercase">
-                    NEW
-                  </span>
-                ) : null
-              }
+          {/* Primary Image */}
+          <Image
+            src={getOptimizedImageUrl(primaryImage, isHero ? 1000 : 600)}
+            alt={product.name}
+            fill
+            sizes={isHero ? '(max-width: 768px) 100vw, 50vw' : '(max-width: 768px) 50vw, 25vw'}
+            className="object-cover select-none pointer-events-none"
+            style={{
+              opacity: (isHovered || touchActive) && hasSecondImage ? 0 : 1,
+              transition: 'opacity 400ms cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          />
+
+          {/* Secondary Image (Crossfade on Hover/Touch) */}
+          {hasSecondImage && (
+            <Image
+              src={getOptimizedImageUrl(secondaryImage, isHero ? 1000 : 600)}
+              alt={`${product.name} detail`}
+              fill
+              sizes={isHero ? '(max-width: 768px) 100vw, 50vw' : '(max-width: 768px) 50vw, 25vw'}
+              className="object-cover select-none pointer-events-none"
+              style={{
+                opacity: isHovered || touchActive ? 1 : 0,
+                transition: 'opacity 400ms cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
             />
+          )}
 
-            {/* Desktop Only Ghost Text Overlay */}
-            <div className="absolute inset-0 pointer-events-none z-[12] flex items-center justify-center p-4 hidden md:flex">
-              <span
-                style={{
-                  fontSize: 'clamp(1.2rem, 3.5vw, 2.5rem)',
-                  WebkitTextStroke: '1px var(--drftn-white)',
-                  color: 'transparent',
-                }}
-                className="text-center font-display font-black uppercase tracking-tighter text-transparent opacity-0 group-hover:opacity-85 transition-all duration-[300ms] ease-out select-none"
-              >
-                {prod.name}
+          {/* Top-Left Corner Badge: GONE / FEATURED / NEW */}
+          <div className="absolute top-3 left-3 z-20 pointer-events-none">
+            {isOutOfStock ? (
+              <span className="text-[10px] font-mono font-bold tracking-[0.16em] text-white/60 bg-black/75 px-2 py-0.5 uppercase backdrop-blur-sm border border-white/10">
+                GONE
               </span>
-            </div>
-
-            {/* Subtle bottom dark gradient */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none z-[11]" />
-
-            {/* Actions */}
-            {showActions && !isOutOfStock && (
-              <div className="absolute bottom-3 right-3 z-20">
-                <button
-                  onClick={handleQuickAddClick}
-                  disabled={isAdding}
-                  className={`w-8 h-8 rounded-none flex items-center justify-center transition-all duration-200 active:scale-90 border ${isAdding
-                      ? 'bg-[--drftn-white] text-[--drftn-black] border-[--drftn-white]'
-                      : 'bg-[--drftn-black]/60 hover:bg-[--drftn-black]/80 text-[--drftn-white] border-[--drftn-gray-700]'
-                    }`}
-                  id={`quick-add-${prod.id}`}
-                  aria-label={`Quick add ${prod.name} to cart`}
-                >
-                  {isAdding ? (
-                    <span className="text-[10px] font-mono">✓</span>
-                  ) : (
-                    <Plus className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              </div>
+            ) : product.is_featured ? (
+              <span className="text-[10px] font-mono font-bold tracking-[0.16em] text-white bg-black/80 px-2 py-0.5 uppercase backdrop-blur-sm border border-white/20">
+                FEATURED
+              </span>
+            ) : (
+              <span className="text-[10px] font-mono font-bold tracking-[0.16em] text-white/90 bg-black/60 px-2 py-0.5 uppercase backdrop-blur-sm border border-white/10">
+                NEW
+              </span>
             )}
           </div>
 
-          {/* Product Details with tighter spacing on mobile */}
-          <div className="pt-2 pb-3 md:pt-3 md:pb-6 flex flex-col text-left space-y-0.5 md:space-y-1 px-1.5 md:px-0">
-            <h3 className="text-[10px] md:text-xs font-display text-[--drftn-white] tracking-[0.08em] uppercase line-clamp-1">
-              {prod.name}
-            </h3>
-            <div className="flex items-baseline gap-2 h-4 md:h-5 text-[10px] md:text-xs font-mono">
-              <span className="text-[--drftn-white] font-medium">
-                ₹{(prod.price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
+          {/* Top-Right Corner Badge: Discount Tag (-X%) */}
+          {discountPercent !== null && (
+            <div className="absolute top-3 right-3 z-20 pointer-events-none">
+              <span className="text-[10px] font-mono font-bold tracking-[0.12em] text-white bg-red-600/90 px-2 py-0.5 uppercase backdrop-blur-sm border border-red-500/40">
+                -{discountPercent}%
               </span>
-              {prod.compare_price && prod.compare_price > prod.price && (
-                <>
-                  <span className="text-[9px] md:text-[10px] text-[--drftn-gray-500] line-through font-normal">
-                    ₹{(prod.compare_price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
-                  </span>
-                  <span className="text-[9px] md:text-[10px] text-[--drftn-gray-500] font-normal tracking-wide">
-                    -{Math.round(((prod.compare_price - prod.price) / prod.compare_price) * 100)}%
-                  </span>
-                </>
-              )}
             </div>
+          )}
+
+          {/* Bottom subtle gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none z-[11]" />
+
+          {/* Quick Add Button */}
+          {!isOutOfStock && (
+            <div className="absolute bottom-3 right-3 z-20">
+              <button
+                type="button"
+                onClick={handleQuickAddClick}
+                disabled={isAdding}
+                className={`w-8 h-8 rounded-none flex items-center justify-center transition-all duration-200 active:scale-90 border ${
+                  isAdding
+                    ? 'bg-white text-black border-white'
+                    : 'bg-black/60 hover:bg-black/90 text-white border-white/20 backdrop-blur-sm'
+                }`}
+                aria-label={`Quick add ${product.name} to cart`}
+              >
+                {isAdding ? (
+                  <span className="text-[10px] font-mono font-bold">✓</span>
+                ) : (
+                  <Plus className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Details & Minimal Price Line */}
+        <div className="pt-2.5 pb-2 flex flex-col text-left space-y-1">
+          <h3
+            className={`font-display text-white tracking-[0.08em] uppercase line-clamp-1 ${
+              isHero ? 'text-sm md:text-base font-extrabold' : 'text-xs font-bold'
+            }`}
+          >
+            {product.name}
+          </h3>
+          <div className="flex items-baseline gap-2 font-mono text-xs md:text-sm">
+            <span className="text-white font-medium">
+              ₹{(product.price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
+            </span>
+            {product.compare_price && product.compare_price > product.price && (
+              <span className="text-zinc-400 line-through font-normal text-[10px] md:text-xs">
+                ₹{(product.compare_price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
+              </span>
+            )}
           </div>
-        </motion.div>
+        </div>
       </Link>
-    </motion.div>
+    </div>
   );
 }
 
@@ -308,10 +279,55 @@ export default function Homepage() {
 
 
   const categoryRef = useRef<HTMLElement>(null);
-  const gridItems = getGridItems(featuredProducts.slice(0, 6));
+  const gridContainerRef = useRef<HTMLDivElement>(null);
   const featuredRef = useRef<HTMLElement>(null);
   const storyRef = useRef<HTMLElement>(null);
   const igRef = useRef<HTMLElement>(null);
+
+  // Select 4-5 products max for the homepage storefront showcase
+  const selectShowcaseProducts = (products: Product[]): Product[] => {
+    const active = products.filter((p) => p.is_active !== false);
+    if (active.length === 0) return [];
+
+    const featured = active.filter((p) => p.is_featured);
+    const nonFeatured = active.filter((p) => !p.is_featured);
+
+    const sorted = featured.length > 0 ? [...featured, ...nonFeatured] : [...active];
+    return sorted.slice(0, 5);
+  };
+
+  const showcaseProducts = selectShowcaseProducts(allProducts);
+
+  // GSAP ScrollTrigger reveal for storefront grid tiles
+  useEffect(() => {
+    if (typeof window === 'undefined' || showcaseProducts.length === 0) return;
+
+    gsap.registerPlugin(ScrollTrigger);
+
+    const ctx = gsap.context(() => {
+      const tileEls = gridContainerRef.current?.querySelectorAll('.showcase-tile');
+      if (tileEls && tileEls.length > 0) {
+        gsap.fromTo(
+          tileEls,
+          { opacity: 0, y: 20 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.6,
+            ease: 'power2.out',
+            stagger: 0.09,
+            scrollTrigger: {
+              trigger: gridContainerRef.current,
+              start: 'top 85%',
+              once: true,
+            },
+          }
+        );
+      }
+    });
+
+    return () => ctx.revert();
+  }, [showcaseProducts.length]);
 
   // Load product data
   useEffect(() => {
@@ -422,31 +438,29 @@ export default function Homepage() {
       <BrandStorySection />
 
       {/* ═══════════════════════════════════════════
-          2. CATEGORIES (DEPARTMENTS) — COLLECTIONS
+          2. FEATURED SHOWCASE GRID (Curated Drops)
           ═══════════════════════════════════════════ */}
       <section
         ref={categoryRef}
-        className="pt-2 pb-8 md:pt-16 md:pb-20 w-full overflow-hidden text-brand-offwhite relative z-10"
+        className="my-12 md:my-20 px-4 sm:px-6 md:px-12 max-w-screen-2xl mx-auto w-full text-brand-offwhite relative z-10"
         aria-labelledby="categories-heading"
       >
-
-        {/* Ultra-Luxurious Header */}
+        {/* Editorial Header */}
         <motion.div
           initial={{ opacity: 0.3, filter: 'blur(4px)', y: 16 }}
-          whileInView={{
-            opacity: 1,
-            filter: 'blur(0px)',
-            y: 0,
-          }}
+          whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
           viewport={{ once: true, margin: '-20%' }}
           transition={{
             opacity: { type: 'spring', stiffness: 100, damping: 15 },
             y: { type: 'spring', stiffness: 100, damping: 15 },
             filter: { duration: 0.5 },
           }}
-          className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 md:mb-10 px-4 sm:px-8 md:px-12 max-w-screen-2xl mx-auto w-full"
+          className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 md:mb-12 w-full"
         >
-          <div className="flex flex-col text-left">
+          <div className="flex flex-col text-left space-y-1">
+            <span className="text-[10px] font-mono font-bold tracking-[0.25em] text-zinc-400 uppercase">
+              DRFTN ARCHIVE // FEATURED
+            </span>
             <h2
               id="categories-heading"
               className="text-white leading-none font-display font-black uppercase text-4xl sm:text-6xl md:text-8xl tracking-tighter drop-shadow-md"
@@ -455,98 +469,39 @@ export default function Homepage() {
             </h2>
           </div>
 
-          <DRFTNButton href="/shop" variant="outline" className="self-start md:self-end">
-            EXPLORE ALL DROPS
+          <DRFTNButton href="/collection" variant="outline" className="self-start md:self-end">
+            VIEW FULL COLLECTION
           </DRFTNButton>
         </motion.div>
 
-        {/* Curated Product Cards Grid */}
-        {featuredProducts.length > 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-10%' }}
-            transition={{ duration: 0.6 }}
-            className="w-full"
-            style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 650px' }}
-          >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-[2px] px-4 md:px-12 max-w-screen-2xl mx-auto w-full">
-              {gridItems.map((item, idx) => {
-                if (item.type === 'product') {
-                  return (
-                    <div key={item.product.id} className={item.spanClass}>
-                      <ProductCard
-                        prod={item.product}
-                        index={idx}
-                        onQuickAdd={handleQuickAdd}
-                      />
-                    </div>
-                  );
-                } else {
-                    return (
-                      <Link
-                        key={item.id}
-                        href={`/shop?category=${item.category}`}
-                        data-cursor="banner"
-                        className={`${item.spanClass} product-image-hoverable relative overflow-hidden group flex flex-col justify-end p-8 md:p-12 text-left`}
-                      >
-                        <Image
-                          src={item.image}
-                          alt=""
-                          fill
-                          className="object-cover transition-transform duration-[800ms] ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-[1.02] brightness-[0.45]"
-                        />
-                        <div className="relative z-10 space-y-2">
-                          <span className="text-[10px] font-mono font-bold tracking-[0.25em] text-brand-amber uppercase block">
-                            {item.subtitle}
-                          </span>
-                          <h3 className="text-3xl md:text-6xl font-display font-black uppercase tracking-tighter text-white leading-none">
-                            {item.title}
-                          </h3>
-                        </div>
-                      </Link>
-                    );
-                  }
-                })}
+        {/* Curated Product Showcase Grid with Gutters */}
+        {showcaseProducts.length > 0 ? (
+          <div className="w-full">
+            <div
+              ref={gridContainerRef}
+              className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 md:gap-4 w-full"
+            >
+              {showcaseProducts.map((prod, idx) => (
+                <StorefrontTile
+                  key={prod.id}
+                  product={prod}
+                  isHero={idx === 0}
+                  onQuickAdd={handleQuickAdd}
+                />
+              ))}
             </div>
 
-            {/* ── ULTRA-LUXURIOUS VAULT ARCHIVE TEASER BANNER ── */}
-            <div className="mt-10 px-4 md:px-12 max-w-screen-2xl mx-auto w-full">
-              <div className="relative overflow-hidden rounded-none border border-white/20 bg-gradient-to-r from-zinc-950 via-zinc-900 to-black p-8 sm:p-10 md:p-14 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 group hover:border-white/40 transition-colors duration-500">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(255,255,255,0.08)_0%,transparent_70%)] pointer-events-none" />
-
-                <div className="relative z-10 space-y-2 max-w-xl text-left">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    <span className="text-[10px] font-mono font-bold tracking-[0.25em] text-zinc-400 uppercase">
-                      THE DRFTN ARCHIVE // 2026 DROPS
-                    </span>
-                  </div>
-
-                  <h3 className="text-2xl sm:text-4xl md:text-5xl font-display font-black uppercase text-white tracking-tighter">
-                    UNLOCK THE COMPLETE COLLECTION
-                  </h3>
-
-                  <p className="text-xs font-body font-medium text-zinc-400 max-w-md leading-relaxed">
-                    Heavyweight 300+ GSM tees, acid-washed stitched hoodies, and limited edition drops. Free shipping across India.
-                  </p>
-                </div>
-
-                <div className="relative z-10 w-full sm:w-auto">
-                  <DRFTNButton href="/shop" variant="primary" fullWidth className="sm:w-auto">
-                    VIEW ALL PRODUCTS
-                  </DRFTNButton>
-                </div>
-              </div>
+            {/* View Full Collection CTA Below Grid */}
+            <div className="mt-10 md:mt-14 flex justify-center">
+              <DRFTNButton href="/collection" variant="outline">
+                VIEW FULL COLLECTION
+              </DRFTNButton>
             </div>
-          </motion.div>
+          </div>
         ) : (
-          <div className="max-w-screen-2xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 px-4 md:px-12" aria-busy="true" aria-label="Loading collections">
+          <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4" aria-busy="true" aria-label="Loading collections">
             {[...Array(4)].map((_, i) => (
-              <div
-                key={i}
-                className="w-full aspect-[3/4] shimmer rounded-[8px]"
-              />
+              <div key={i} className="w-full aspect-[3/4] shimmer rounded-sm bg-zinc-900" />
             ))}
           </div>
         )}
