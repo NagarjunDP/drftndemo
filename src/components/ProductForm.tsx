@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category } from '@/types';
-import { ArrowLeft, Trash2, ArrowLeftRight, Upload, Sparkles, MoveLeft, MoveRight, Star, HelpCircle, Camera, Loader2, Plus, Link2 } from 'lucide-react';
+import { ArrowLeft, Trash2, ArrowLeftRight, Upload, Sparkles, MoveLeft, MoveRight, Star, HelpCircle, Camera, Loader2, Plus, Link2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ToastContainer';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
@@ -77,6 +77,8 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
   const [isRemovingBg, setIsRemovingBg] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [hasGeneratedDescription, setHasGeneratedDescription] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [lastCutoutBlob, setLastCutoutBlob] = useState<Blob | null>(null);
 
   // Fetch categories on load
   useEffect(() => {
@@ -376,6 +378,84 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     addToast(`${validUrls.length} image URL(s) added to gallery`, 'success');
   };
 
+  // Upload transparent cutout blob to server-side Cloudinary route
+  const uploadBgRemovedImage = async (blob: Blob, fileName: string) => {
+    setIsUploading(true);
+    setBgRemovalStatus('Enhancing & uploading...');
+    setUploadError(null);
+
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', blob, `bg-removed-${fileName}`);
+
+      const uploadRes = await fetch('/api/admin/products/upload-image', {
+        method: 'POST',
+        body: uploadFormData,
+      });
+
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) {
+        throw new Error(uploadData.error || 'Cloudinary upload failed');
+      }
+
+      const secureUrl = uploadData.secure_url;
+      if (!secureUrl) {
+        throw new Error('No secure_url returned from server upload route');
+      }
+
+      // Auto-populate into Paste Cloudinary URLs input row
+      setUrlPasteInputs(prev => {
+        if (prev.length === 0 || (prev.length === 1 && !prev[0].trim())) {
+          return [secureUrl];
+        }
+        if (!prev[0].trim()) {
+          const next = [...prev];
+          next[0] = secureUrl;
+          return next;
+        }
+        if (!prev[prev.length - 1].trim()) {
+          const next = [...prev];
+          next[next.length - 1] = secureUrl;
+          return next;
+        }
+        if (prev.length < 8) {
+          return [...prev, secureUrl];
+        }
+        return prev;
+      });
+
+      addToast('Photo enhanced & uploaded to Cloudinary!', 'success');
+
+      // Auto-trigger description generation if first image
+      if (!hasGeneratedDescription) {
+        generateDescription(blob);
+        setHasGeneratedDescription(true);
+      }
+
+      // Reset processing states
+      setProcessingImage(null);
+      setProcessingImgUrl(null);
+      setLastCutoutBlob(null);
+      setUploadError(null);
+    } catch (err: any) {
+      console.error('[uploadBgRemovedImage Error]:', err);
+      setUploadError(err.message || 'Failed to upload to Cloudinary');
+      addToast(`Upload failed: ${err.message || err}`, 'error');
+    } finally {
+      setIsUploading(false);
+      setIsRemovingBg(false);
+      setBgRemovalStatus('');
+    }
+  };
+
+  const retryCloudinaryUpload = async () => {
+    if (lastCutoutBlob) {
+      await uploadBgRemovedImage(lastCutoutBlob, processingImage?.name || 'garment.png');
+    } else if (processingImage) {
+      await processImageBackground(processingImage);
+    }
+  };
+
   // Intercept uploads or camera captures to run background removal
   const processImageBackground = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
@@ -389,6 +469,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
 
     setProcessingImage(file);
     setIsRemovingBg(true);
+    setUploadError(null);
     setBgRemovalStatus('Downloading AI cutout model (first load takes a few seconds)...');
 
     try {
@@ -414,6 +495,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
 
       const transparentUrl = URL.createObjectURL(transparentBlob);
       setProcessingImgUrl(transparentUrl);
+      setLastCutoutBlob(transparentBlob);
 
       setBgRemovalStatus('Analyzing garment color palette...');
       const img = new Image();
@@ -425,14 +507,15 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
 
       const domColor = getDominantColor(img);
       setDominantColor(domColor);
-      setIsRemovingBg(false);
-      setBgRemovalStatus('');
+
+      // Auto-upload the bg-removed image to Cloudinary via server route
+      await uploadBgRemovedImage(transparentBlob, file.name);
     } catch (err: any) {
       console.error(err);
+      setUploadError(err.message || 'Failed during background removal process');
       addToast(`Failed to strip background: ${err.message || err}`, 'error');
       setIsRemovingBg(false);
       setBgRemovalStatus('');
-      setProcessingImage(null);
     }
   };
 
@@ -1204,7 +1287,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                 }}
               />
 
-              {!processingImage ? (
+              {!processingImage && !uploadError ? (
                 /* Drag and Drop Upload Area */
                 <div 
                   className="border-2 border-dashed border-zinc-200 bg-zinc-50/50 hover:bg-zinc-50 p-8 text-center rounded-lg flex flex-col items-center justify-center gap-4 transition-all duration-300"
@@ -1244,29 +1327,69 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                   </div>
                 </div>
               ) : (
-                /* AI Studio Studio Builder */
+                /* AI Studio Studio Builder / Upload Progress & Error */
                 <div className="bg-white border border-zinc-200 p-6 rounded-lg space-y-6 shadow-md">
                   <div className="flex items-center justify-between border-b border-zinc-150 pb-3">
                     <div className="space-y-0.5">
                       <span className="text-xs uppercase font-extrabold tracking-widest text-zinc-900 flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-brand-amber animate-pulse" />
-                        AI Streetwear Studio
+                        Automated Image Pipeline
                       </span>
-                      <p className="text-[10px] text-zinc-500 font-mono truncate max-w-[280px]">File: {processingImage.name}</p>
+                      {processingImage && (
+                        <p className="text-[10px] text-zinc-500 font-mono truncate max-w-[280px]">File: {processingImage.name}</p>
+                      )}
                     </div>
                     {(isRemovingBg || isUploading || isGeneratingDescription) && (
                       <span className="text-[10px] uppercase font-bold text-brand-red tracking-wider font-mono flex items-center gap-1.5">
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        Active
+                        Processing...
                       </span>
                     )}
                   </div>
+
+                  {/* Inline Error State */}
+                  {uploadError && (
+                    <div className="bg-red-50 border border-red-200 p-4 rounded-md space-y-3">
+                      <div className="flex items-center gap-2 text-red-700 font-semibold text-xs">
+                        <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                        <span>Upload Error: {uploadError}</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-600">
+                        Cloudinary upload encountered an issue. You can retry the upload, or cancel and manually paste a Cloudinary URL into the field above.
+                      </p>
+                      <div className="flex items-center gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={retryCloudinaryUpload}
+                          className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold uppercase rounded hover:bg-red-700 transition-colors flex items-center gap-1.5 shadow-sm"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Retry Upload
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadError(null);
+                            setProcessingImage(null);
+                            setProcessingImgUrl(null);
+                            setLastCutoutBlob(null);
+                            setIsRemovingBg(false);
+                            setIsUploading(false);
+                            setBgRemovalStatus('');
+                          }}
+                          className="px-3 py-1.5 bg-white border border-zinc-300 text-zinc-700 text-xs font-bold uppercase rounded hover:bg-zinc-100 transition-colors"
+                        >
+                          Cancel & Fall Back to Manual Paste
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Loading Progress State */}
                   {bgRemovalStatus && (
                     <div className="space-y-2 bg-zinc-50 p-4 border border-zinc-200 rounded-md">
                       <span className="text-[10px] uppercase font-bold text-zinc-500 font-mono tracking-widest block">
-                        Processing details...
+                        Processing & Uploading...
                       </span>
                       <div className="flex items-center gap-3">
                         <Loader2 className="w-4 h-4 animate-spin text-brand-red shrink-0" />
