@@ -52,15 +52,16 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const heroWrapperRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef<HTMLDivElement>(null);
+  const hoodieStageRef = useRef<HTMLDivElement>(null);
   const hoodieLightRef = useRef<HTMLDivElement>(null);
   const hoodieDarkRef = useRef<HTMLDivElement>(null);
+  const bgDiscRef = useRef<HTMLDivElement>(null);
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
   const textFillRef = useRef<HTMLDivElement>(null);
   const driftInFillRef = useRef<HTMLDivElement>(null);
   const headlineBlockRef = useRef<HTMLDivElement>(null);
   const marqueeColsRef = useRef<(HTMLDivElement | null)[]>([]);
 
-  const [activeBucket, setActiveBucket] = useState<number>(0);
   const currentBucketRef = useRef<number>(0);
   const [isLowEndDevice, setIsLowEndDevice] = useState<boolean>(false);
 
@@ -90,13 +91,13 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
     if (typeof window === 'undefined') return;
 
     gsap.registerPlugin(ScrollTrigger);
-
     ScrollTrigger.config({ ignoreMobileResize: true });
 
     const containerEl = containerRef.current;
     const pinnedEl = pinnedRef.current;
     const hoodieLightEl = hoodieLightRef.current;
     const hoodieDarkEl = hoodieDarkRef.current;
+    const bgDiscEl = bgDiscRef.current;
     const scrollIndEl = scrollIndicatorRef.current;
     const textFillEl = textFillRef.current;
     const driftInFillEl = driftInFillRef.current;
@@ -104,8 +105,39 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
 
     if (!containerEl || !pinnedEl || !hoodieLightEl || !hoodieDarkEl) return;
 
+    let cachedScale = 4.5;
+
+    const recalcScale = () => {
+      const stageEl = hoodieStageRef.current || containerEl;
+      if (!stageEl || !hoodieDarkEl) return;
+      const stageRect = stageEl.getBoundingClientRect();
+      if (stageRect.width === 0 || stageRect.height === 0) return;
+
+      const originX = stageRect.width * 0.6;
+      const originY = stageRect.height * 0.45;
+      const corners: [number, number][] = [
+        [0, 0],
+        [stageRect.width, 0],
+        [0, stageRect.height],
+        [stageRect.width, stageRect.height],
+      ];
+      const maxDist = Math.max(
+        ...corners.map(([x, y]) => Math.sqrt((x - originX) ** 2 + (y - originY) ** 2))
+      );
+
+      const maskW = hoodieDarkEl.offsetWidth || stageRect.width;
+      const maskH = hoodieDarkEl.offsetHeight || stageRect.height;
+      const maskRadius = Math.min(maskW, maskH) / 2;
+
+      cachedScale = Math.max(3.5, (maxDist / (maskRadius || 1)) * 1.2);
+    };
+
+    recalcScale();
+    window.addEventListener('resize', recalcScale);
+
     const mm = gsap.matchMedia();
 
+    // DOM-only contrast bucket update without React re-renders during scroll
     const updateContrastBucket = (progress: number) => {
       let bucket = 0;
       if (progress > 0.75) bucket = 3;
@@ -114,44 +146,40 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
 
       if (bucket !== currentBucketRef.current) {
         currentBucketRef.current = bucket;
-        setActiveBucket(bucket);
 
         if (heroWrapperRef.current) {
           const milestone = MILESTONES[bucket] || MILESTONES[0];
           heroWrapperRef.current.setAttribute('data-contrast-mode', milestone.contrastMode);
-          heroWrapperRef.current.style.setProperty(
-            '--hero-contrast-bg',
-            milestone.bgHex
-          );
+          heroWrapperRef.current.style.setProperty('--hero-contrast-bg', milestone.bgHex);
+        }
+        if (bgDiscEl) {
+          bgDiscEl.style.background = bucket === 2 ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.22)';
         }
       }
     };
 
-    // DESKTOP TIMELINE (≥768px)
+    // DESKTOP TIMELINE (≥768px) - Single Consolidated Timeline
     mm.add('(min-width: 768px)', () => {
-      const initialMask = 'radial-gradient(circle at 50% 50%, black 0%, transparent 0%)';
       gsap.set(hoodieLightEl, { opacity: 1, scale: 1, yPercent: 0 });
       gsap.set(hoodieDarkEl, {
         opacity: 1,
         scale: 1,
         yPercent: 0,
-        maskImage: initialMask,
-        webkitMaskImage: initialMask,
+        clipPath: 'circle(0% at 50% 50%)',
+        webkitClipPath: 'circle(0% at 50% 50%)',
       });
       if (driftInFillEl) {
         gsap.set(driftInFillEl, {
-          clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
-          webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
+          clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
+          webkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
         });
       }
       if (textFillEl) {
         gsap.set(textFillEl, {
-          clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
-          webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
+          clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
+          webkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
         });
       }
-
-      const maskObj = { inner: 0, outer: 0 };
 
       const tl = gsap.timeline({
         scrollTrigger: {
@@ -159,6 +187,127 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
           start: 'top top',
           end: 'bottom bottom',
           pin: pinnedEl,
+          scrub: 1.0,
+          fastScrollEnd: true,
+          onEnter: () => {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
+              willChange: 'transform, opacity, clip-path',
+            });
+          },
+          onEnterBack: () => {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
+              willChange: 'transform, opacity, clip-path',
+            });
+          },
+          onLeave: () => {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
+              clearProps: 'willChange',
+            });
+          },
+          onLeaveBack: () => {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
+              clearProps: 'willChange',
+            });
+          },
+          onUpdate: (self) => {
+            updateContrastBucket(self.progress);
+            if (scrollIndEl) {
+              const op = Math.max(0, 1 - self.progress * 5);
+              scrollIndEl.style.opacity = op.toString();
+            }
+          },
+        },
+      });
+
+      // 1. Direct Scroll-Scrubbed Circle Clip-Path Reveal (un-covering to black hoodie)
+      tl.to(
+        hoodieDarkEl,
+        {
+          clipPath: 'circle(120% at 50% 50%)',
+          webkitClipPath: 'circle(120% at 50% 50%)',
+          duration: 0.6,
+          ease: 'none',
+        },
+        0.0
+      );
+
+      // 2. DRIFT IN Text Fill Overlay
+      if (driftInFillEl) {
+        tl.to(
+          driftInFillEl,
+          {
+            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+            webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+            duration: 0.4,
+            ease: 'none',
+          },
+          0.0
+        );
+      }
+
+      // 3. STYLE. Text Fill Overlay
+      if (textFillEl) {
+        tl.to(
+          textFillEl,
+          {
+            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+            webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+            duration: 0.45,
+            ease: 'none',
+          },
+          0.25
+        );
+      }
+
+      // 4. Parallax Headline Block
+      if (headlineBlockEl) {
+        tl.to(headlineBlockEl, { yPercent: -10, ease: 'none', duration: 1.0 }, 0.0);
+      }
+
+      // 5. Marquee Columns Parallax
+      marqueeColsRef.current.forEach((col, idx) => {
+        if (!col) return;
+        const scrollUp = idx % 2 === 0;
+        tl.to(
+          col,
+          {
+            yPercent: scrollUp ? -20 : 20,
+            ease: 'none',
+            duration: 1.0,
+          },
+          0.0
+        );
+      });
+    });
+
+    // MOBILE TIMELINE (<768px) - Single Consolidated Timeline
+    mm.add('(max-width: 767px)', () => {
+      gsap.set(hoodieLightEl, { opacity: 1, scale: 1, yPercent: 0 });
+      gsap.set(hoodieDarkEl, {
+        opacity: 1,
+        scale: 1,
+        yPercent: 0,
+        clipPath: 'circle(0% at 50% 50%)',
+        webkitClipPath: 'circle(0% at 50% 50%)',
+      });
+      if (driftInFillEl) {
+        gsap.set(driftInFillEl, {
+          clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
+          webkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
+        });
+      }
+      if (textFillEl) {
+        gsap.set(textFillEl, {
+          clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
+          webkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
+        });
+      }
+
+      const mobileTl = gsap.timeline({
+        scrollTrigger: {
+          trigger: containerEl,
+          start: 'top top',
+          end: '+=120',
           scrub: 0.8,
           fastScrollEnd: true,
           onEnter: () => {
@@ -184,173 +333,66 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
           onUpdate: (self) => {
             updateContrastBucket(self.progress);
             if (scrollIndEl) {
-              const op = Math.max(0, 1 - self.progress * 5);
+              const op = Math.max(0, 1 - self.progress * 3);
               scrollIndEl.style.opacity = op.toString();
             }
           },
         },
       });
 
-      tl.to(maskObj, {
-        inner: 120,
-        outer: 140,
-        duration: 0.6,
-        ease: 'none',
-        onUpdate: () => {
-          if (hoodieDarkEl) {
-            const grad = `radial-gradient(circle at 50% 50%, black ${maskObj.inner}%, transparent ${maskObj.outer}%)`;
-            hoodieDarkEl.style.maskImage = grad;
-            hoodieDarkEl.style.webkitMaskImage = grad;
-          }
-        },
-      }, 0.0)
-        .to(hoodieLightEl, { opacity: 0.15, scale: 0.95, duration: 0.6, ease: 'none' }, 0.0);
-
-      // 1. DRIFT IN Fill (0.0 → 0.40)
-      if (driftInFillEl) {
-        tl.to(driftInFillEl, {
-          clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          duration: 0.40,
+      // Direct Scroll-Scrubbed Circle Clip-Path Reveal on Mobile
+      mobileTl.to(
+        hoodieDarkEl,
+        {
+          clipPath: 'circle(120% at 50% 50%)',
+          webkitClipPath: 'circle(120% at 50% 50%)',
+          duration: 0.6,
           ease: 'none',
-        }, 0.0);
+        },
+        0.0
+      );
+
+      if (driftInFillEl) {
+        mobileTl.to(
+          driftInFillEl,
+          {
+            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+            webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+            duration: 0.4,
+            ease: 'none',
+          },
+          0.0
+        );
       }
 
-      // 2. STYLE. Fill (0.25 → 0.70)
       if (textFillEl) {
-        tl.to(textFillEl, {
-          clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          duration: 0.45,
-          ease: 'none',
-        }, 0.25);
+        mobileTl.to(
+          textFillEl,
+          {
+            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+            webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+            duration: 0.5,
+            ease: 'none',
+          },
+          0.1
+        );
       }
 
       if (headlineBlockEl) {
-        tl.to(headlineBlockEl, { yPercent: -10, ease: 'none', duration: 1.0 }, 0.0);
-      }
-
-      marqueeColsRef.current.forEach((col, idx) => {
-        if (!col) return;
-        const scrollUp = idx % 2 === 0;
-        gsap.to(col, {
-          yPercent: scrollUp ? -20 : 20,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: containerEl,
-            start: 'top top',
-            end: 'bottom bottom',
-            scrub: true,
+        mobileTl.to(
+          headlineBlockEl,
+          {
+            yPercent: -4,
+            duration: 0.6,
+            ease: 'none',
           },
-        });
-      });
-    });
-
-    // MOBILE TIMELINE (<768px)
-    mm.add('(max-width: 767px)', () => {
-      const initialMask = 'radial-gradient(circle at 50% 50%, black 0%, transparent 0%)';
-      gsap.set(hoodieLightEl, { opacity: 1, scale: 1, yPercent: 0 });
-      gsap.set(hoodieDarkEl, {
-        opacity: 1,
-        scale: 1,
-        yPercent: 0,
-        maskImage: initialMask,
-        webkitMaskImage: initialMask,
-      });
-      if (driftInFillEl) {
-        gsap.set(driftInFillEl, {
-          clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
-          webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
-        });
-      }
-      if (textFillEl) {
-        gsap.set(textFillEl, {
-          clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
-          webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)',
-        });
-      }
-
-      const maskObj = { inner: 0, outer: 0 };
-
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: containerEl,
-          start: 'top top',
-          end: 'bottom bottom',
-          pin: pinnedEl,
-          scrub: 0.7,
-          fastScrollEnd: true,
-          onEnter: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
-              willChange: 'transform, opacity, clip-path',
-            });
-          },
-          onEnterBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
-              willChange: 'transform, opacity, clip-path',
-            });
-          },
-          onLeave: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
-              clearProps: 'willChange',
-            });
-          },
-          onLeaveBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
-              clearProps: 'willChange',
-            });
-          },
-          onUpdate: (self) => {
-            updateContrastBucket(self.progress);
-            if (scrollIndEl) {
-              const op = Math.max(0, 1 - self.progress * 5);
-              scrollIndEl.style.opacity = op.toString();
-            }
-          },
-        },
-      });
-
-      tl.to(maskObj, {
-        inner: 120,
-        outer: 140,
-        duration: 0.6,
-        ease: 'none',
-        onUpdate: () => {
-          if (hoodieDarkEl) {
-            const grad = `radial-gradient(circle at 50% 50%, black ${maskObj.inner}%, transparent ${maskObj.outer}%)`;
-            hoodieDarkEl.style.maskImage = grad;
-            hoodieDarkEl.style.webkitMaskImage = grad;
-          }
-        },
-      }, 0.0)
-        .to(hoodieLightEl, { opacity: 0.15, scale: 0.96, duration: 0.6, ease: 'none' }, 0.0);
-
-      // 1. DRIFT IN Fill (0.0 → 0.40)
-      if (driftInFillEl) {
-        tl.to(driftInFillEl, {
-          clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          duration: 0.40,
-          ease: 'none',
-        }, 0.0);
-      }
-
-      // 2. STYLE. Fill (0.25 → 0.70)
-      if (textFillEl) {
-        tl.to(textFillEl, {
-          clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-          duration: 0.45,
-          ease: 'none',
-        }, 0.25);
-      }
-
-      if (headlineBlockEl) {
-        tl.to(headlineBlockEl, { yPercent: -4, ease: 'none', duration: 1.0 }, 0.0);
+          0.0
+        );
       }
     });
 
     return () => {
+      window.removeEventListener('resize', recalcScale);
       mm.revert();
     };
   }, [isLowEndDevice]);
@@ -375,7 +417,10 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
           <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
             {/* Multi-radial gradient ambient spotlight */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,rgba(255,255,255,0.16)_0%,rgba(35,35,45,0.55)_45%,rgba(0,0,0,1)_92%)]" />
-            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[320px] sm:w-[500px] md:w-[700px] h-[320px] sm:h-[500px] md:h-[700px] rounded-full bg-white/15 blur-[120px] pointer-events-none" />
+            <div
+              ref={bgDiscRef}
+              className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[320px] sm:w-[500px] md:w-[700px] h-[320px] sm:h-[500px] md:h-[700px] rounded-full bg-white/15 blur-[120px] pointer-events-none"
+            />
 
             {/* Architectural noise texture */}
             <Image
@@ -412,16 +457,19 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
           <div className="relative z-10 w-full flex-1 flex flex-col items-center justify-center pointer-events-none py-2">
             {/* Ambient Backlight Glow Disc */}
             <div
-              className="absolute w-[340px] sm:w-[460px] md:w-[600px] h-[340px] sm:h-[460px] md:h-[600px] rounded-full blur-[110px] opacity-35 transition-colors duration-500"
-              style={{ background: activeBucket === 2 ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.22)' }}
+              className="absolute w-[340px] sm:w-[460px] md:w-[600px] h-[340px] sm:h-[460px] md:h-[600px] rounded-full blur-[110px] opacity-35 transition-colors duration-500 bg-white/20"
             />
 
-            {/* Dominant Hoodie Visual Container — Enlarged for Mobile (~88vw) */}
-            <div className="relative w-[88vw] sm:w-[84vw] md:w-[520px] lg:w-[580px] max-w-[460px] md:max-w-none h-[46vh] sm:h-[50vh] md:h-full flex items-center justify-center">
-              {/* Hoodie 1: Light / Cream Edition */}
+            {/* Dominant Hoodie Visual Container — Hoodie Stage */}
+            <div
+              ref={hoodieStageRef}
+              className="hoodie-stage relative w-[88vw] sm:w-[84vw] md:w-[520px] lg:w-[580px] max-w-[460px] md:max-w-none h-[46vh] sm:h-[50vh] md:h-full flex items-center justify-center"
+            >
+              {/* Hoodie Base: Light / Cream Edition (ALWAYS opacity: 1) */}
               <div
                 ref={hoodieLightRef}
-                className="absolute inset-0 w-full h-full flex items-center justify-center"
+                className="hoodie-base absolute inset-0 w-full h-full flex items-center justify-center"
+                style={{ contain: 'layout paint style' }}
               >
                 <Image
                   src="/hero/hoodie-light-mobile.png"
@@ -433,10 +481,16 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
                 />
               </div>
 
-              {/* Hoodie 2: Dark / Stealth Edition */}
+              {/* Hoodie Reveal Mask: Direct 1:1 Scroll Scrubbed Circle Reveal */}
               <div
                 ref={hoodieDarkRef}
-                className="absolute inset-0 w-full h-full flex items-center justify-center bg-transparent"
+                className="hoodie-reveal-mask absolute inset-0 w-full h-full flex items-center justify-center bg-transparent pointer-events-none"
+                style={{
+                  clipPath: 'circle(0% at 50% 50%)',
+                  WebkitClipPath: 'circle(0% at 50% 50%)',
+                  willChange: 'clip-path',
+                  contain: 'layout paint style',
+                }}
               >
                 <Image
                   src="/hero/hoodie-dark-mobile.png"
@@ -444,7 +498,8 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
                   fill
                   priority
                   sizes="(max-width: 768px) 88vw, 580px"
-                  className="object-contain"
+                  className="hoodie-reveal object-contain filter drop-shadow-[0_12px_32px_rgba(0,0,0,0.5)]"
+                  style={{ contain: 'layout paint style' }}
                 />
               </div>
             </div>
@@ -454,7 +509,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
           <div className="relative z-20 w-full max-w-screen-2xl mx-auto flex flex-col md:flex-row items-stretch md:items-end justify-between gap-3 md:gap-6">
             {/* Copy & Headline Block */}
             <div ref={headlineBlockRef} className="max-w-2xl text-left space-y-1 sm:space-y-2">
-              {/* ── OVERSIZED EDITORIAL HEADLINE: "DRIFT IN" + "STYLE." (Sequential Hollow-to-Solid Fill) ── */}
+              {/* ── OVERSIZED EDITORIAL HEADLINE: "DRIFT IN" + "STYLE." (Sequential Clip Path Fill) ── */}
               <div className="flex flex-col space-y-0.5 text-left select-none">
                 {/* Line 1: DRIFT IN (Hollow stroke underlay + Solid white fill overlay scrubbed on scroll) */}
                 <div className="relative inline-block overflow-hidden py-0.5">
@@ -465,7 +520,10 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
                   <div
                     ref={driftInFillRef}
                     className="absolute inset-0 pointer-events-none z-10 py-0.5"
-                    style={{ clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)' }}
+                    style={{
+                      clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
+                      WebkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
+                    }}
                   >
                     <h1 className="text-3xl sm:text-5xl md:text-6xl font-display font-black uppercase tracking-tight text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.85)] leading-tight block">
                       DRIFT <span className="italic font-serif font-normal text-white/90">IN</span>
@@ -485,7 +543,10 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
                   <div
                     ref={textFillRef}
                     className="absolute inset-0 pointer-events-none z-10 py-0.5"
-                    style={{ clipPath: 'polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)' }}
+                    style={{
+                      clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
+                      WebkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
+                    }}
                   >
                     <span className="text-5xl sm:text-7xl md:text-9xl font-display font-black uppercase tracking-tight text-white drop-shadow-[0_12px_30px_rgba(0,0,0,0.95)] leading-none block">
                       STYLE.

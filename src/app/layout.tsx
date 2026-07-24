@@ -9,7 +9,6 @@ import ToastContainer from '@/components/ToastContainer';
 import AddToCartAnimation from '@/components/AddToCartAnimation';
 import BrandLoader from '@/components/BrandLoader';
 import PushPrompt from '@/components/PushPrompt';
-import LoginIncentivePopup from '@/components/LoginIncentivePopup';
 import NotificationToast from '@/components/NotificationToast';
 import CustomCursor from '@/components/CustomCursor';
 import PageTransition from '@/components/PageTransition';
@@ -211,7 +210,6 @@ export default function RootLayout({
               <AddToCartAnimation />
               <BrandLoader />
               <PushPrompt />
-              <LoginIncentivePopup />
               <NotificationToast />
               <CustomCursor />
               {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}

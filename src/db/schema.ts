@@ -57,6 +57,23 @@ export const products = pgTable('products', {
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// 2b. Product Variants Table
+export const productVariants = pgTable('product_variants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  product_id: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  colour_name: text('colour_name').notNull(),
+  colour_hex: text('colour_hex'), // optional hex code, e.g. '#000000'
+  images: text('images').array().notNull().default(sql`'{}'::text[]`), // Cloudinary URLs for this variant
+  sizes: text('sizes').array().notNull().default(sql`'{"XS", "S", "M", "L", "XL", "XXL"}'::text[]`),
+  stock_quantity: jsonb('stock_quantity').$type<Record<string, number>>().notNull().default(sql`'{"XS": 0, "S": 0, "M": 0, "L": 0, "XL": 0, "XXL": 0}'::jsonb`),
+  stock_qty: integer('stock_qty').notNull().default(0),
+  sku: text('sku').unique().notNull(),
+  price_override: integer('price_override'), // in paise, nullable (falls back to products.price / base_price if null)
+  is_active: boolean('is_active').notNull().default(true),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // 3. Orders Table
 export const orders = pgTable('orders', {
   id: uuid('id').primaryKey().defaultRandom(),

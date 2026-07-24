@@ -160,7 +160,8 @@ export default clerkMiddleware(async (auth, request) => {
     const fallbackAllowlist = [
       'admin@drftn.in',
       'nagarjundp256@gmail.com',
-      'drftnclothing@gmail.com'
+      'drftnclothing@gmail.com',
+      'chethansc47@gmail.com'
     ];
 
     const envAllowlist = (process.env.ADMIN_ALLOWLIST_EMAILS || '')

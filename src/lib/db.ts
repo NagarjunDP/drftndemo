@@ -248,6 +248,31 @@ export const dbService = {
         .where(inArray(schema.productImages.product_id, productIds))
         .orderBy(asc(schema.productImages.sort_order));
 
+      const allVariants = await db
+        .select()
+        .from(schema.productVariants)
+        .where(inArray(schema.productVariants.product_id, productIds))
+        .orderBy(asc(schema.productVariants.created_at));
+
+      const variantsByProductId = allVariants.reduce((acc: Record<string, any[]>, v: any) => {
+        if (!acc[v.product_id]) acc[v.product_id] = [];
+        acc[v.product_id].push({
+          id: v.id,
+          product_id: v.product_id,
+          colour_name: v.colour_name,
+          colour_hex: v.colour_hex,
+          images: v.images || [],
+          sizes: v.sizes || [],
+          stock_quantity: v.stock_quantity || {},
+          stock_qty: v.stock_qty || 0,
+          sku: v.sku,
+          price_override: v.price_override,
+          is_active: v.is_active,
+          created_at: v.created_at ? v.created_at.toISOString() : undefined,
+        });
+        return acc;
+      }, {} as Record<string, any[]>);
+
       const imagesByProductId = allImages.reduce((acc: Record<string, string[]>, img: any) => {
         if (img.sort_order !== 99) {
           if (!acc[img.product_id]) acc[img.product_id] = [];
@@ -263,28 +288,37 @@ export const dbService = {
         return acc;
       }, {} as Record<string, string>);
       
-      const formatted = results.map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        slug: r.slug,
-        description: r.description || '',
-        price: r.price,
-        compare_price: r.compare_price || undefined,
-        category: r.category,
-        subcategory: r.subcategory || undefined,
-        gender: r.gender,
-        images: imagesByProductId[r.id] || [],
-        hidden_detail_image: hiddenImageByProductId[r.id] || undefined,
-        sizes: r.sizes,
-        stock_quantity: r.stock_quantity,
-        is_featured: r.is_featured,
-        is_active: r.is_active,
-        weight_grams: r.weight_grams,
-        length_cm: r.length_cm,
-        breadth_cm: r.breadth_cm,
-        height_cm: r.height_cm,
-        created_at: r.created_at.toISOString(),
-      }));
+      const formatted = results.map((r: any) => {
+        const prodVariants = variantsByProductId[r.id] || [];
+        const fallbackImgs = imagesByProductId[r.id] && imagesByProductId[r.id].length > 0
+          ? imagesByProductId[r.id]
+          : (prodVariants[0]?.images || r.images || []);
+
+        return {
+          id: r.id,
+          name: r.name,
+          slug: r.slug,
+          description: r.description || '',
+          price: r.price,
+          base_price: r.price,
+          compare_price: r.compare_price || undefined,
+          category: r.category,
+          subcategory: r.subcategory || undefined,
+          gender: r.gender,
+          images: fallbackImgs,
+          hidden_detail_image: hiddenImageByProductId[r.id] || undefined,
+          sizes: r.sizes,
+          stock_quantity: r.stock_quantity,
+          is_featured: r.is_featured,
+          is_active: r.is_active,
+          weight_grams: r.weight_grams,
+          length_cm: r.length_cm,
+          breadth_cm: r.breadth_cm,
+          height_cm: r.height_cm,
+          created_at: r.created_at.toISOString(),
+          variants: prodVariants,
+        };
+      });
 
       // ── Write Redis cache ─────────────────────────────────────────────
       await setProductsInRedisCache(formatted);
@@ -317,6 +351,31 @@ export const dbService = {
         .where(inArray(schema.productImages.product_id, productIds))
         .orderBy(asc(schema.productImages.sort_order));
 
+      const allVariants = await db
+        .select()
+        .from(schema.productVariants)
+        .where(inArray(schema.productVariants.product_id, productIds))
+        .orderBy(asc(schema.productVariants.created_at));
+
+      const variantsByProductId = allVariants.reduce((acc: Record<string, any[]>, v: any) => {
+        if (!acc[v.product_id]) acc[v.product_id] = [];
+        acc[v.product_id].push({
+          id: v.id,
+          product_id: v.product_id,
+          colour_name: v.colour_name,
+          colour_hex: v.colour_hex,
+          images: v.images || [],
+          sizes: v.sizes || [],
+          stock_quantity: v.stock_quantity || {},
+          stock_qty: v.stock_qty || 0,
+          sku: v.sku,
+          price_override: v.price_override,
+          is_active: v.is_active,
+          created_at: v.created_at ? v.created_at.toISOString() : undefined,
+        });
+        return acc;
+      }, {} as Record<string, any[]>);
+
       const imagesByProductId = allImages.reduce((acc: Record<string, string[]>, img: any) => {
         if (img.sort_order !== 99) {
           if (!acc[img.product_id]) acc[img.product_id] = [];
@@ -332,28 +391,37 @@ export const dbService = {
         return acc;
       }, {} as Record<string, string>);
       
-      return results.map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        slug: r.slug,
-        description: r.description || '',
-        price: r.price,
-        compare_price: r.compare_price || undefined,
-        category: r.category,
-        subcategory: r.subcategory || undefined,
-        gender: r.gender,
-        images: imagesByProductId[r.id] || [],
-        hidden_detail_image: hiddenImageByProductId[r.id] || undefined,
-        sizes: r.sizes,
-        stock_quantity: r.stock_quantity,
-        is_featured: r.is_featured,
-        is_active: r.is_active,
-        weight_grams: r.weight_grams,
-        length_cm: r.length_cm,
-        breadth_cm: r.breadth_cm,
-        height_cm: r.height_cm,
-        created_at: r.created_at.toISOString(),
-      }));
+      return results.map((r: any) => {
+        const prodVariants = variantsByProductId[r.id] || [];
+        const fallbackImgs = imagesByProductId[r.id] && imagesByProductId[r.id].length > 0
+          ? imagesByProductId[r.id]
+          : (prodVariants[0]?.images || r.images || []);
+
+        return {
+          id: r.id,
+          name: r.name,
+          slug: r.slug,
+          description: r.description || '',
+          price: r.price,
+          base_price: r.price,
+          compare_price: r.compare_price || undefined,
+          category: r.category,
+          subcategory: r.subcategory || undefined,
+          gender: r.gender,
+          images: fallbackImgs,
+          hidden_detail_image: hiddenImageByProductId[r.id] || undefined,
+          sizes: r.sizes,
+          stock_quantity: r.stock_quantity,
+          is_featured: r.is_featured,
+          is_active: r.is_active,
+          weight_grams: r.weight_grams,
+          length_cm: r.length_cm,
+          breadth_cm: r.breadth_cm,
+          height_cm: r.height_cm,
+          created_at: r.created_at.toISOString(),
+          variants: prodVariants,
+        };
+      });
     } else {
       const res = await fetch('/api/admin/products');
       if (!res.ok) throw new Error('Failed to fetch admin products');
@@ -364,7 +432,6 @@ export const dbService = {
 
   async getProductBySlug(slug: string): Promise<Product | null> {
     if (typeof window === 'undefined') {
-      // 1. Check Redis-cached products list first for <1ms response time
       try {
         const allProducts = await this.getProducts();
         const found = allProducts.find((p) => p.slug === slug);
@@ -394,6 +461,27 @@ export const dbService = {
         .where(eq(schema.productImages.product_id, prod.id))
         .orderBy(asc(schema.productImages.sort_order));
 
+      const rawVariants = await db
+        .select()
+        .from(schema.productVariants)
+        .where(eq(schema.productVariants.product_id, prod.id))
+        .orderBy(asc(schema.productVariants.created_at));
+
+      const variants = rawVariants.map((v: any) => ({
+        id: v.id,
+        product_id: v.product_id,
+        colour_name: v.colour_name,
+        colour_hex: v.colour_hex,
+        images: v.images || [],
+        sizes: v.sizes || [],
+        stock_quantity: v.stock_quantity || {},
+        stock_qty: v.stock_qty || 0,
+        sku: v.sku,
+        price_override: v.price_override,
+        is_active: v.is_active,
+        created_at: v.created_at ? v.created_at.toISOString() : undefined,
+      }));
+
       const images: string[] = [];
       let hiddenDetailImage: string | undefined = undefined;
 
@@ -405,17 +493,20 @@ export const dbService = {
         }
       }
 
+      const finalImgs = images.length > 0 ? images : (variants[0]?.images || prod.images || []);
+
       return {
         id: prod.id,
         name: prod.name,
         slug: prod.slug,
         description: prod.description || '',
         price: prod.price,
+        base_price: prod.price,
         compare_price: prod.compare_price || undefined,
         category: prod.category,
         subcategory: prod.subcategory || undefined,
         gender: prod.gender,
-        images,
+        images: finalImgs,
         hidden_detail_image: hiddenDetailImage,
         sizes: prod.sizes,
         stock_quantity: prod.stock_quantity,
@@ -426,6 +517,7 @@ export const dbService = {
         breadth_cm: prod.breadth_cm,
         height_cm: prod.height_cm,
         created_at: prod.created_at.toISOString(),
+        variants,
       };
     } else {
       const res = await fetch(`/api/products?slug=${slug}`);
@@ -436,24 +528,26 @@ export const dbService = {
     }
   },
 
-  async createProduct(prod: Omit<Product, 'id'>): Promise<Product> {
+  async createProduct(prod: Omit<Product, 'id'> & { base_price?: number; variants?: any[] }): Promise<Product> {
     if (typeof window === 'undefined') {
       const { db } = await import('@/db');
       const schema = await import('@/db/schema');
       
+      const priceVal = prod.base_price ?? prod.price;
+
       const [inserted] = await db
         .insert(schema.products)
         .values({
           name: prod.name,
           slug: prod.slug,
           description: prod.description,
-          price: prod.price,
+          price: priceVal,
           compare_price: prod.compare_price || null,
           category: prod.category,
           subcategory: prod.subcategory || null,
           gender: prod.gender,
-          sizes: prod.sizes,
-          stock_quantity: prod.stock_quantity,
+          sizes: prod.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+          stock_quantity: prod.stock_quantity || { XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
           is_featured: prod.is_featured !== undefined ? prod.is_featured : false,
           is_active: prod.is_active !== undefined ? prod.is_active : true,
           weight_grams: prod.weight_grams,
@@ -472,6 +566,45 @@ export const dbService = {
             alt_text: `${inserted.name} - Image ${index + 1}`
           }))
         );
+      }
+
+      // Create product_variants — only if the user explicitly provided them (optional)
+      const variantsToCreate = prod.variants && prod.variants.length > 0 ? prod.variants : [];
+
+      const insertedVariants: any[] = [];
+      for (const v of variantsToCreate) {
+        const stockMap = v.stock_quantity || { XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 };
+        const totalStock = Object.values(stockMap).reduce((a: number, b: any) => a + Number(b || 0), 0);
+        const [vRow] = await db
+          .insert(schema.productVariants)
+          .values({
+            product_id: inserted.id,
+            colour_name: v.colour_name || 'Standard',
+            colour_hex: v.colour_hex || null,
+            images: v.images || [],
+            sizes: v.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+            stock_quantity: stockMap,
+            stock_qty: totalStock,
+            sku: v.sku || `DRFTN-${inserted.slug.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)}-${(v.colour_name || 'VAR').toUpperCase().slice(0, 5)}-${Math.floor(100 + Math.random() * 900)}`,
+            price_override: v.price_override ? Number(v.price_override) : null,
+            is_active: v.is_active !== undefined ? v.is_active : true,
+          })
+          .returning();
+        
+        insertedVariants.push({
+          id: vRow.id,
+          product_id: vRow.product_id,
+          colour_name: vRow.colour_name,
+          colour_hex: vRow.colour_hex,
+          images: vRow.images || [],
+          sizes: vRow.sizes || [],
+          stock_quantity: vRow.stock_quantity || {},
+          stock_qty: vRow.stock_qty || 0,
+          sku: vRow.sku,
+          price_override: vRow.price_override,
+          is_active: vRow.is_active,
+          created_at: vRow.created_at.toISOString(),
+        });
       }
 
       // Seed Redis stock gate keys
@@ -493,11 +626,12 @@ export const dbService = {
         slug: inserted.slug,
         description: inserted.description || '',
         price: inserted.price,
+        base_price: inserted.price,
         compare_price: inserted.compare_price || undefined,
         category: inserted.category,
         subcategory: inserted.subcategory || undefined,
         gender: inserted.gender,
-        images: prod.images,
+        images: prod.images || (insertedVariants[0]?.images || []),
         sizes: inserted.sizes,
         stock_quantity: inserted.stock_quantity,
         is_featured: inserted.is_featured,
@@ -507,6 +641,7 @@ export const dbService = {
         breadth_cm: inserted.breadth_cm,
         height_cm: inserted.height_cm,
         created_at: inserted.created_at.toISOString(),
+        variants: insertedVariants,
       };
     } else {
       const res = await fetch('/api/admin/products', {
@@ -514,35 +649,63 @@ export const dbService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(prod),
       });
-      if (!res.ok) throw new Error('Failed to create product');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create product');
+      }
       const data = await res.json();
       return data.product;
     }
   },
 
-  async updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
+  async updateProduct(id: string, updates: Partial<Product> & { base_price?: number; variants?: any[] }): Promise<Product> {
     if (typeof window === 'undefined') {
       const { db } = await import('@/db');
       const schema = await import('@/db/schema');
       const { eq, asc } = await import('drizzle-orm');
       
-      const { images, ...productFields } = updates;
+      const { images, variants, base_price, ...productFields } = updates;
 
       const [oldProduct] = await db
         .select()
         .from(schema.products)
         .where(eq(schema.products.id, id));
 
+      const updateData: any = {
+        ...productFields,
+        updated_at: new Date(),
+      };
+      if (base_price !== undefined) updateData.price = base_price;
+
       const [updated] = await db
         .update(schema.products)
-        .set({
-          ...productFields,
-          updated_at: new Date(),
-        })
+        .set(updateData)
         .where(eq(schema.products.id, id))
         .returning();
 
       if (!updated) throw new Error('Product not found');
+
+      // Sync variants if provided — variants is always sent (empty [] = no variants for this product)
+      if (variants !== undefined && Array.isArray(variants)) {
+        // Delete existing variants, then re-insert whatever was submitted (may be empty)
+        await db.delete(schema.productVariants).where(eq(schema.productVariants.product_id, id));
+        for (const v of variants) {
+          const stockMap = v.stock_quantity || { XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 };
+          const totalStock = Object.values(stockMap).reduce((a: number, b: any) => a + Number(b || 0), 0);
+          await db.insert(schema.productVariants).values({
+            product_id: id,
+            colour_name: v.colour_name || 'Standard',
+            colour_hex: v.colour_hex || null,
+            images: v.images || [],
+            sizes: v.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+            stock_quantity: stockMap,
+            stock_qty: totalStock,
+            sku: v.sku || `DRFTN-${updated.slug.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)}-${(v.colour_name || 'VAR').toUpperCase().slice(0, 5)}-${Math.floor(100 + Math.random() * 900)}`,
+            price_override: v.price_override ? Number(v.price_override) : null,
+            is_active: v.is_active !== undefined ? v.is_active : true,
+          });
+        }
+      }
 
       // Update Redis stock gate keys
       if (updates.stock_quantity) {
@@ -627,12 +790,19 @@ export const dbService = {
         .where(eq(schema.productImages.product_id, id))
         .orderBy(asc(schema.productImages.sort_order));
 
+      const updatedVariants = await db
+        .select()
+        .from(schema.productVariants)
+        .where(eq(schema.productVariants.product_id, id))
+        .orderBy(asc(schema.productVariants.created_at));
+
       return {
         id: updated.id,
         name: updated.name,
         slug: updated.slug,
         description: updated.description || '',
         price: updated.price,
+        base_price: updated.price,
         compare_price: updated.compare_price || undefined,
         category: updated.category,
         subcategory: updated.subcategory || undefined,
@@ -647,6 +817,20 @@ export const dbService = {
         breadth_cm: updated.breadth_cm,
         height_cm: updated.height_cm,
         created_at: updated.created_at.toISOString(),
+        variants: updatedVariants.map((v: any) => ({
+          id: v.id,
+          product_id: v.product_id,
+          colour_name: v.colour_name,
+          colour_hex: v.colour_hex,
+          images: v.images || [],
+          sizes: v.sizes || [],
+          stock_quantity: v.stock_quantity || {},
+          stock_qty: v.stock_qty || 0,
+          sku: v.sku,
+          price_override: v.price_override,
+          is_active: v.is_active,
+          created_at: v.created_at ? v.created_at.toISOString() : undefined,
+        })),
       };
     } else {
       const res = await fetch(`/api/admin/products?id=${id}`, {
@@ -654,9 +838,57 @@ export const dbService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       });
-      if (!res.ok) throw new Error('Failed to update product');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to update product');
+      }
       const data = await res.json();
       return data.product;
+    }
+  },
+
+  async checkProductSimilarity(name: string): Promise<{ matched: boolean; product?: { id: string; name: string; slug: string } }> {
+    if (typeof window === 'undefined') {
+      const { db } = await import('@/db');
+      const schema = await import('@/db/schema');
+      const { sql } = await import('drizzle-orm');
+
+      const cleanName = name.trim();
+      if (!cleanName || cleanName.length < 2) return { matched: false };
+
+      try {
+        const results: any = await db.execute(
+          sql`SELECT id, name, slug, similarity(name, ${cleanName}) as score FROM products WHERE similarity(name, ${cleanName}) > 0.4 ORDER BY score DESC LIMIT 1;`
+        );
+        const row = (results.rows || results)[0] as any;
+        if (row && row.id) {
+          return {
+            matched: true,
+            product: { id: row.id, name: row.name, slug: row.slug },
+          };
+        }
+      } catch (pgErr) {
+        console.warn('[dbService] pg_trgm similarity check failed, falling back to JS normalized check:', pgErr);
+      }
+
+      const allProds = await db.select({ id: schema.products.id, name: schema.products.name, slug: schema.products.slug }).from(schema.products);
+      const targetNorm = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      for (const p of allProds) {
+        const pNorm = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (pNorm === targetNorm || (targetNorm.length > 3 && pNorm.includes(targetNorm)) || (pNorm.length > 3 && targetNorm.includes(pNorm))) {
+          return {
+            matched: true,
+            product: { id: p.id, name: p.name, slug: p.slug },
+          };
+        }
+      }
+
+      return { matched: false };
+    } else {
+      const res = await fetch(`/api/admin/products/check-similarity?name=${encodeURIComponent(name)}`);
+      if (!res.ok) return { matched: false };
+      return await res.json();
     }
   },
 

@@ -80,6 +80,27 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [lastCutoutBlob, setLastCutoutBlob] = useState<Blob | null>(null);
 
+  // Background removal toggle state (default OFF)
+  const [removeBgToggle, setRemoveBgToggle] = useState(false);
+
+  // Duplicate / Similar product name warning state
+  const [similarProductWarning, setSimilarProductWarning] = useState<{
+    matched: boolean;
+    product?: { id: string; name: string; slug: string };
+  } | null>(null);
+
+  // Repeatable Colour Variant state (optional — default empty [])
+  const [variants, setVariants] = useState<Array<{
+    id?: string;
+    colour_name: string;
+    colour_hex: string;
+    images: string[];
+    sizes: string[];
+    stock_quantity: Record<string, number>;
+    sku: string;
+    price_override: string;
+  }>>([]);
+
   // Fetch categories on load
   useEffect(() => {
     async function loadCategories() {
@@ -145,8 +166,47 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
       setLength(initialData.length_cm ? initialData.length_cm.toString() : '');
       setBreadth(initialData.breadth_cm ? initialData.breadth_cm.toString() : '');
       setHeight(initialData.height_cm ? initialData.height_cm.toString() : '');
+
+      // Always reset variants to match the saved product (may be empty for products with no colour variants)
+      setVariants(
+        initialData.variants && initialData.variants.length > 0
+          ? initialData.variants.map((v) => ({
+              id: v.id,
+              colour_name: v.colour_name,
+              colour_hex: v.colour_hex || '#18181B',
+              images: v.images || [],
+              sizes: v.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+              stock_quantity: v.stock_quantity || { XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
+              sku: v.sku || '',
+              price_override: v.price_override ? (v.price_override / 100).toString() : '',
+            }))
+          : []
+      );
     }
   }, [initialData?.id]);
+
+  // Debounced product name similarity check (~500ms) on create mode
+  useEffect(() => {
+    if (mode !== 'create' || !name.trim() || name.trim().length < 2) {
+      setSimilarProductWarning(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await db.checkProductSimilarity(name.trim());
+        if (res.matched && res.product) {
+          setSimilarProductWarning(res);
+        } else {
+          setSimilarProductWarning(null);
+        }
+      } catch {
+        setSimilarProductWarning(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [name, mode]);
 
   // Auto-slugify name
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -433,83 +493,26 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
       // 1. Optimize transparent blob on canvas (max 1600px) to prevent payload size errors
       const optimizedBlob = await optimizeTransparentBlob(blob, 1600);
 
-      let secureUrl: string | null = null;
+      // 2. Primary upload via server-side route
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', optimizedBlob, `bg-removed-${fileName}`);
 
-      // 2. Attempt primary upload via server-side route
-      try {
-        const uploadFormData = new FormData();
-        uploadFormData.append('file', optimizedBlob, `bg-removed-${fileName}`);
+      const uploadRes = await fetch('/api/admin/products/upload-image', {
+        method: 'POST',
+        body: uploadFormData,
+      });
 
-        const uploadRes = await fetch('/api/admin/products/upload-image', {
-          method: 'POST',
-          body: uploadFormData,
-        });
-
-        const resText = await uploadRes.text();
-        let uploadData: any;
-        try {
-          uploadData = JSON.parse(resText);
-        } catch {
-          console.warn('[uploadBgRemovedImage] Server route returned non-JSON response:', resText.slice(0, 100));
-        }
-
-        if (uploadRes.ok && uploadData?.secure_url) {
-          secureUrl = uploadData.secure_url;
-        }
-      } catch (serverErr) {
-        console.warn('[uploadBgRemovedImage] Server route error, attempting direct Cloudinary upload:', serverErr);
+      if (!uploadRes.ok) {
+        const errData = await uploadRes.json().catch(() => ({}));
+        throw new Error(errData.error || `Server upload failed (HTTP ${uploadRes.status})`);
       }
 
-      // 3. Fallback: Direct signed upload to Cloudinary if server route failed
-      if (!secureUrl) {
-        setBgRemovalStatus('Uploading directly to Cloudinary...');
-        const timestamp = Math.round(Date.now() / 1000);
-        const folder = 'drftn-products';
-
-        const signRes = await fetch('/api/admin/cloudinary-sign', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ params: { timestamp, folder } }),
-        });
-
-        if (!signRes.ok) {
-          throw new Error('Cloudinary server signing error');
-        }
-
-        const signData = await signRes.json();
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-
-        if (!cloudName) {
-          throw new Error('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME is not configured');
-        }
-
-        const directFormData = new FormData();
-        directFormData.append('file', optimizedBlob, `bg-removed-${fileName}`);
-        directFormData.append('api_key', signData.apiKey);
-        directFormData.append('timestamp', String(timestamp));
-        directFormData.append('signature', signData.signature);
-        directFormData.append('folder', folder);
-
-        const directRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-          method: 'POST',
-          body: directFormData,
-        });
-
-        const directText = await directRes.text();
-        let directData: any;
-        try {
-          directData = JSON.parse(directText);
-        } catch {
-          throw new Error(`Direct Cloudinary upload failed (HTTP ${directRes.status}): ${directText.slice(0, 100)}`);
-        }
-
-        if (!directRes.ok || !directData.secure_url) {
-          throw new Error(directData?.error?.message || `Direct upload failed (HTTP ${directRes.status})`);
-        }
-
-        const rawUrl = directData.secure_url;
-        secureUrl = rawUrl.replace('/upload/', '/upload/f_auto,q_auto,e_improve,e_sharpen:60/');
+      const uploadData = await uploadRes.json();
+      if (!uploadData?.secure_url) {
+        throw new Error('Cloudinary upload returned invalid URL');
       }
+
+      const secureUrl: string = uploadData.secure_url;
 
       // 4. Auto-populate into Paste Cloudinary URLs input row
       setUrlPasteInputs(prev => {
@@ -650,73 +653,41 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
       ...validFiles.map((f) => ({ name: f.name, progress: 0 })),
     ]);
 
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    if (!cloudName) {
-      addToast('Cloudinary is not configured.', 'error');
-      setIsUploading(false);
-      return;
-    }
-
     const uploadedUrls: string[] = [];
 
     for (let i = 0; i < validFiles.length; i++) {
       const file = validFiles[i];
-      const timestamp = Math.round(new Date().getTime() / 1000);
-      const folder = 'drftn-products';
 
       try {
-        const signRes = await fetch('/api/admin/cloudinary-sign', {
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', file);
+        if (removeBgToggle) {
+          uploadFormData.append('removeBackground', 'true');
+        }
+
+        const res = await fetch('/api/admin/products/upload-image', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ params: { timestamp, folder } })
+          body: uploadFormData,
         });
 
-        if (!signRes.ok) throw new Error('Failed to get signature');
-        const signData = await signRes.json();
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${res.status}`);
+        }
 
-        const url = await new Promise<string>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('api_key', signData.apiKey);
-          formData.append('timestamp', String(timestamp));
-          formData.append('signature', signData.signature);
-          formData.append('folder', folder);
-
-          xhr.upload.addEventListener('progress', (event) => {
-            if (event.lengthComputable) {
-              const progress = Math.round((event.loaded / event.total) * 100);
-              setUploadingFiles((prev) =>
-                prev.map((f) => (f.name === file.name ? { ...f, progress } : f))
-              );
-            }
-          });
-
-          xhr.addEventListener('load', () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              const res = JSON.parse(xhr.responseText);
-              resolve(res.secure_url);
-            } else {
-              reject(new Error('Cloudinary response error'));
-            }
-          });
-
-          xhr.addEventListener('error', () => reject(new Error('Network error')));
-          xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`);
-          xhr.send(formData);
-        });
-
-        const optimizedUrl = url.replace('/upload/', '/upload/f_auto,q_auto/');
-        uploadedUrls.push(optimizedUrl);
-      } catch (err) {
-        console.error(err);
-        addToast(`Failed to upload "${file.name}"`, 'error');
+        const data = await res.json();
+        if (data.secure_url) {
+          uploadedUrls.push(data.secure_url);
+        }
+      } catch (err: any) {
+        console.error('[Upload Image Error]:', err);
+        addToast(`Failed to upload "${file.name}": ${err.message || err}`, 'error');
       }
     }
 
     if (uploadedUrls.length > 0) {
       setImages((prev) => [...prev, ...uploadedUrls]);
-      addToast(`${uploadedUrls.length} secondary image(s) uploaded successfully`, 'success');
+      addToast(`${uploadedUrls.length} image(s) uploaded successfully`, 'success');
     }
     setIsUploading(false);
     setUploadingFiles((prev) => prev.filter((pf) => !validFiles.some((vf) => vf.name === pf.name)));
@@ -978,11 +949,34 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         ? `${description.trim()}\n\nTags: ${tags.join(', ')}`
         : description.trim();
 
+      // Process variants
+      const formattedVariants = variants.map((v, idx) => {
+        const vStock: Record<string, number> = {};
+        AVAILABLE_SIZES.forEach((size) => {
+          vStock[size] = v.sizes.includes(size) ? (v.stock_quantity[size] || 0) : 0;
+        });
+
+        const colName = v.colour_name.trim() || `Variant ${idx + 1}`;
+        const autoSku = `DRFTN-${slug.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)}-${colName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5)}-${idx + 1}`;
+
+        return {
+          id: v.id,
+          colour_name: colName,
+          colour_hex: v.colour_hex || '#18181B',
+          images: v.images && v.images.length > 0 ? v.images : images,
+          sizes: v.sizes && v.sizes.length > 0 ? v.sizes : activeSizes,
+          stock_quantity: vStock,
+          sku: v.sku.trim() || autoSku,
+          price_override: v.price_override ? Math.round(Number(v.price_override) * 100) : null,
+        };
+      });
+
       const payload = {
         name: name.trim(),
         slug: slug.trim(),
         description: finalDescription,
         price: Math.round(Number(price) * 100), // convert to paise
+        base_price: Math.round(Number(price) * 100),
         compare_price: comparePrice ? Math.round(Number(comparePrice) * 100) : undefined, // convert to paise
         category,
         subcategory: subcategory || null,
@@ -996,31 +990,37 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         length_cm: length ? Math.round(Number(length)) : null,
         breadth_cm: breadth ? Math.round(Number(breadth)) : null,
         height_cm: height ? Math.round(Number(height)) : null,
+        variants: formattedVariants,
       };
 
-      // [DEV] Log the exact payload being sent to the DB for verification
-      console.log('[DEV] Product payload →', JSON.stringify({
-        ...payload,
-        price_rupees: Number(price),
-        price_paise: payload.price,
-        compare_price_rupees: comparePrice ? Number(comparePrice) : undefined,
-        compare_price_paise: payload.compare_price,
-        images_count: images.length,
-        images_order: images.map((url, i) => ({ sort_order: i, url: url.slice(0, 80) + (url.length > 80 ? '…' : '') })),
-      }, null, 2));
-
       if (mode === 'create') {
-        await db.createProduct(payload as any);
-        addToast('Product created successfully', 'success');
+        try {
+          await db.createProduct(payload as any);
+          addToast('Product created successfully', 'success');
+        } catch (createErr: any) {
+          // Slug collision auto-suffixing
+          if (createErr?.message?.includes('slug') || createErr?.message?.includes('unique constraint') || createErr?.message?.includes('already exists')) {
+            const suffixedSlug = `${slug.trim()}-2`;
+            payload.slug = suffixedSlug;
+            await db.createProduct(payload as any);
+            addToast(`Slug collision detected! Adjusted slug to "${suffixedSlug}"`, 'info');
+            addToast('Product created successfully', 'success');
+          } else {
+            throw createErr;
+          }
+        }
       } else {
         if (!initialData?.id) throw new Error('Missing product ID for updates');
         await db.updateProduct(initialData.id, payload as any);
         addToast('Product updated successfully', 'success');
       }
 
+      // Reset background removal toggle after save
+      setRemoveBgToggle(false);
+
       router.push('/admin/products');
       router.refresh();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       addToast(mode === 'create' ? 'Failed to create product' : 'Failed to update product', 'error');
     } finally {
@@ -1077,6 +1077,34 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                 className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 px-4 py-3 text-sm focus:outline-none focus:bg-white focus:border-zinc-950 focus:ring-1 focus:ring-zinc-950 transition-all"
                 required
               />
+              {/* Inline warning banner if similar product exists */}
+              {similarProductWarning && similarProductWarning.matched && similarProductWarning.product && (
+                <div className="mt-2 bg-amber-50 border border-amber-300 text-amber-900 p-3.5 rounded-md flex items-start justify-between gap-3 text-xs leading-relaxed shadow-sm">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Similar product exists: </span>
+                      <a
+                        href={`/admin/products/${similarProductWarning.product.id}/edit`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline font-bold text-amber-950 hover:text-black"
+                      >
+                        &quot;{similarProductWarning.product.name}&quot;
+                      </a>
+                      . Did you mean to add a colour variant to that product instead? Otherwise, consider a more distinct name.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSimilarProductWarning(null)}
+                    className="text-amber-700 hover:text-amber-950 font-bold text-base leading-none"
+                    title="Dismiss warning"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
             </div>
  
             <div className="space-y-2">
@@ -1228,6 +1256,202 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Colour Variants Repeatable Section */}
+          <div className="bg-white border border-zinc-200/80 shadow-sm p-6 md:p-8 space-y-6">
+            <div className="flex items-center justify-between border-b border-zinc-200/60 pb-3">
+              <div>
+                <h2 className="text-sm font-bold text-zinc-900 uppercase tracking-widest flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-brand-red" />
+                  Colour Variants ({variants.length})
+                </h2>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Configure swatches, per-variant images, stock breakdown, SKUs, and optional price overrides.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const newIndex = variants.length + 1;
+                  const autoCol = `Colour ${newIndex}`;
+                  setVariants((prev) => [
+                    ...prev,
+                    {
+                      colour_name: autoCol,
+                      colour_hex: '#18181B',
+                      images: [],
+                      sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+                      stock_quantity: { XS: 0, S: 5, M: 5, L: 5, XL: 0, XXL: 0 },
+                      sku: `DRFTN-${slug.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)}-${autoCol.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5)}`,
+                      price_override: '',
+                    },
+                  ]);
+                  addToast(`Added new variant "${autoCol}"`, 'info');
+                }}
+                className="px-3.5 py-2 bg-zinc-900 hover:bg-black text-white text-xs font-bold uppercase tracking-wider rounded transition-all flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Colour Variant
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {variants.map((variant, vIdx) => (
+                <div key={vIdx} className="border border-zinc-200 bg-zinc-50/40 p-5 rounded-lg space-y-5 relative">
+                  <div className="flex items-center justify-between border-b border-zinc-200/80 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="w-5 h-5 rounded-full border border-zinc-400 shadow-sm shrink-0"
+                        style={{ backgroundColor: variant.colour_hex || '#18181B' }}
+                      />
+                      <span className="text-xs font-extrabold uppercase tracking-widest text-zinc-900">
+                        Variant #{vIdx + 1}: {variant.colour_name || 'Unnamed Colour'}
+                      </span>
+                    </div>
+                    {variants.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVariants((prev) => prev.filter((_, i) => i !== vIdx));
+                          addToast(`Removed variant "${variant.colour_name}"`, 'info');
+                        }}
+                        className="text-zinc-400 hover:text-brand-red text-xs font-bold uppercase flex items-center gap-1 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Colour Name */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Colour Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Pitch Black, Washed Olive"
+                        value={variant.colour_name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setVariants((prev) =>
+                            prev.map((v, i) => (i === vIdx ? { ...v, colour_name: val } : v))
+                          );
+                        }}
+                        className="w-full bg-white border border-zinc-200 text-zinc-900 px-3 py-2 text-xs focus:outline-none focus:border-zinc-950 transition-all"
+                        required
+                      />
+                    </div>
+
+                    {/* Swatch Picker */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Swatch Colour (Hex)</label>
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="color"
+                          value={variant.colour_hex || '#18181B'}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setVariants((prev) =>
+                              prev.map((v, i) => (i === vIdx ? { ...v, colour_hex: val } : v))
+                            );
+                          }}
+                          className="w-9 h-9 border border-zinc-200 rounded p-0.5 cursor-pointer bg-white"
+                        />
+                        <input
+                          type="text"
+                          placeholder="#000000"
+                          value={variant.colour_hex}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setVariants((prev) =>
+                              prev.map((v, i) => (i === vIdx ? { ...v, colour_hex: val } : v))
+                            );
+                          }}
+                          className="flex-1 bg-white border border-zinc-200 text-zinc-900 px-3 py-2 text-xs font-mono focus:outline-none focus:border-zinc-950 transition-all uppercase"
+                        />
+                      </div>
+                    </div>
+
+                    {/* SKU */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Variant SKU</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. DRFTN-TEE-BLK-01"
+                        value={variant.sku}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setVariants((prev) =>
+                            prev.map((v, i) => (i === vIdx ? { ...v, sku: val } : v))
+                          );
+                        }}
+                        className="w-full bg-white border border-zinc-200 text-zinc-900 px-3 py-2 text-xs font-mono focus:outline-none focus:border-zinc-950 transition-all uppercase"
+                        required
+                      />
+                    </div>
+
+                    {/* Price Override */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
+                        Price Override (₹ Rupees, optional)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder={`Falls back to base price (₹${price || '0'})`}
+                        value={variant.price_override}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setVariants((prev) =>
+                            prev.map((v, i) => (i === vIdx ? { ...v, price_override: val } : v))
+                          );
+                        }}
+                        className="w-full bg-white border border-zinc-200 text-zinc-900 px-3 py-2 text-xs focus:outline-none focus:border-zinc-950 transition-all font-mono"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Per-Variant Size Stock Breakdown */}
+                  <div className="space-y-2 pt-2 border-t border-zinc-200/80">
+                    <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider block">
+                      Variant Stock breakdown by size
+                    </span>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                      {AVAILABLE_SIZES.map((size) => (
+                        <div key={size} className="space-y-1">
+                          <label className="text-[9px] font-bold text-zinc-500 font-mono block text-center">
+                            {size}
+                          </label>
+                          <input
+                            type="number"
+                            value={variant.stock_quantity[size] ?? 0}
+                            onChange={(e) => {
+                              const val = Math.max(0, parseInt(e.target.value) || 0);
+                              setVariants((prev) =>
+                                prev.map((v, i) =>
+                                  i === vIdx
+                                    ? {
+                                        ...v,
+                                        stock_quantity: {
+                                          ...v.stock_quantity,
+                                          [size]: val,
+                                        },
+                                      }
+                                    : v
+                                )
+                              );
+                            }}
+                            className="w-full bg-white border border-zinc-200 text-zinc-900 px-2 py-1.5 text-xs text-center font-mono focus:outline-none focus:border-zinc-950 transition-all"
+                            min="0"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -1394,6 +1618,31 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                   }
                 }}
               />
+
+              {/* Background Removal Toggle Switch */}
+              <div className="flex items-center justify-between bg-zinc-50 border border-zinc-200 p-4 rounded-lg shadow-sm">
+                <div>
+                  <span className="text-xs font-bold text-zinc-900 uppercase tracking-wider block">
+                    Remove Background (Cloudinary AI / remove.bg)
+                  </span>
+                  <span className="text-[11px] text-zinc-500 block">
+                    Automatically strip background before uploading to Cloudinary
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRemoveBgToggle(!removeBgToggle)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    removeBgToggle ? 'bg-zinc-900' : 'bg-zinc-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      removeBgToggle ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
 
               {!processingImage && !uploadError ? (
                 /* Drag and Drop Upload Area */

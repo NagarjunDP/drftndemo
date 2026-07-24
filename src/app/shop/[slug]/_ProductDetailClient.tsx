@@ -104,11 +104,68 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
   const addItem = useCartStore((state) => state.addItem);
 
   // Set the first image once product is available (covers both SSR and client-fetch paths)
+  // Selected Variant & Colour Swatches State
+  const [selectedVariant, setSelectedVariant] = useState<any | null>(null);
+
+  // Initialize selectedVariant from URL query param ?color=... or default to first variant
   useEffect(() => {
-    if (product && !activeImage) {
-      setActiveImage(product.images[0] || '');
+    if (!product) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const colorParam = params.get('color');
+    let matched: any = null;
+
+    if (colorParam && product.variants && product.variants.length > 0) {
+      matched = product.variants.find(
+        (v) => v.colour_name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === colorParam.toLowerCase()
+      ) || null;
     }
-  }, [product]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    if (!matched && product.variants && product.variants.length > 0) {
+      matched = product.variants[0];
+    }
+
+    if (matched) {
+      setSelectedVariant(matched);
+      if (matched.images && matched.images.length > 0) {
+        setActiveImage(matched.images[0]);
+      }
+    }
+  }, [product]);
+
+  // Handle swatch selection
+  const handleVariantSelect = (variant: any) => {
+    setSelectedVariant(variant);
+    if (variant.images && variant.images.length > 0) {
+      setActiveImage(variant.images[0]);
+      setCarouselIndex(0);
+    }
+    // Update URL query param ?color=... without page reload
+    const colorSlug = variant.colour_name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const url = new URL(window.location.href);
+    url.searchParams.set('color', colorSlug);
+    window.history.pushState({}, '', url.toString());
+  };
+
+  // Synchronize browser back/forward navigation with selected variant
+  useEffect(() => {
+    const handlePopState = () => {
+      if (!product || !product.variants) return;
+      const params = new URLSearchParams(window.location.search);
+      const colorParam = params.get('color');
+      if (colorParam) {
+        const match = product.variants.find(
+          (v) => v.colour_name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === colorParam.toLowerCase()
+        );
+        if (match) {
+          setSelectedVariant(match);
+          if (match.images && match.images.length > 0) setActiveImage(match.images[0]);
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [product]);
 
   // Client-side fetch ONLY runs when SSR data wasn't provided (fallback / direct URL access)
   useEffect(() => {
@@ -260,10 +317,24 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
   };
 
   // Stock check helpers
+  const displayImages = selectedVariant?.images && selectedVariant.images.length > 0
+    ? selectedVariant.images
+    : (product?.images || []);
+
+  const displayPrice = selectedVariant?.price_override ?? (product?.price || 0);
+
   const getStockForSize = useCallback((size: string) => {
     if (!product) return 0;
-    return product.stock_quantity[size] || 0;
-  }, [product]);
+    if (selectedVariant && selectedVariant.stock_quantity) {
+      return selectedVariant.stock_quantity[size] ?? 0;
+    }
+    return product.stock_quantity[size] ?? 0;
+  }, [product, selectedVariant]);
+
+  const getVariantTotalStock = (variant: any) => {
+    if (!variant || !variant.stock_quantity) return 0;
+    return Object.values(variant.stock_quantity).reduce((a: number, b: any) => a + Number(b || 0), 0);
+  };
 
   const handleAddToCart = useCallback((e?: React.MouseEvent) => {
     if (!product) return;
@@ -281,15 +352,19 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
     setIsAdding(true);
     setTimeout(() => setIsAdding(false), 900);
 
+    const cartName = selectedVariant && selectedVariant.colour_name !== 'Standard'
+      ? `${product.name} (${selectedVariant.colour_name})`
+      : product.name;
+
     addItem({
       id: product.id,
-      name: product.name,
+      name: cartName,
       slug: product.slug,
-      price: product.price,
+      price: displayPrice,
       compare_price: product.compare_price,
-      image: product.images[0] || '',
+      image: displayImages[0] || product.images[0] || '',
       size: selectedSize,
-      stock_quantity: product.stock_quantity,
+      stock_quantity: selectedVariant?.stock_quantity ?? product.stock_quantity,
     }, quantity);
 
     // Trigger the flying image animation
@@ -303,7 +378,6 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
       const endX = cartRect.left + cartRect.width / 2;
       const endY = cartRect.top + cartRect.height / 2;
 
-      // Find the main product image coordinates
       const imgEl = document.querySelector('.pdp-main-image img') || document.querySelector('img');
       const sourceRect = imgEl ? imgEl.getBoundingClientRect() : (e ? e.currentTarget.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 });
 
@@ -311,7 +385,7 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
       const startY = sourceRect.top + sourceRect.height / 2;
 
       useAnimationStore.getState().addFlyingItem({
-        imageUrl: product.images[0] || '',
+        imageUrl: displayImages[0] || product.images[0] || '',
         start: { x: startX, y: startY },
         end: { x: endX, y: endY },
       });
@@ -319,17 +393,37 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
       useAnimationStore.getState().triggerCartPulse();
     }
 
-    toast.cartSuccess(product.name, product.images[0] || '');
-  }, [selectedSize, product, quantity, addItem]);
+    toast.cartSuccess(cartName, displayImages[0] || product.images[0] || '');
+  }, [selectedSize, product, selectedVariant, displayPrice, displayImages, quantity, addItem, getStockForSize]);
 
-  // Dispatch PDP Info custom event to MobileNavbar capsule pill
+  // Mobile/Desktop priority image preload
+  useEffect(() => {
+    if (!displayImages || displayImages.length === 0) return;
+    
+    const targetWidth = isMobileDevice ? 800 : 1200;
+    displayImages.forEach((img: string, idx: number) => {
+      const optimizedUrl = getOptimizedImageUrl(img, targetWidth);
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = optimizedUrl;
+      if (idx > 1) {
+        link.setAttribute('fetchpriority', 'low');
+      } else {
+        link.setAttribute('fetchpriority', 'high');
+      }
+      document.head.appendChild(link);
+    });
+  }, [displayImages, isMobileDevice]);
+
+  // Sticky Bar Custom Event
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.dispatchEvent(
       new CustomEvent('drftn-pdp-info', {
         detail: {
           active: showStickyBar,
-          price: product ? Math.round(product.price / 100) : 0,
+          price: Math.round(displayPrice / 100),
           size: selectedSize || '',
           isAdding,
           isOutOfStock: isCompletelyOutOfStock,
@@ -343,16 +437,7 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
         })
       );
     };
-  }, [showStickyBar, product, selectedSize, isAdding, isCompletelyOutOfStock]);
-
-  // Listen for Add To Bag trigger from MobileNavbar floating capsule button
-  useEffect(() => {
-    const handler = () => {
-      handleAddToCart();
-    };
-    window.addEventListener('drftn-trigger-add-to-cart', handler);
-    return () => window.removeEventListener('drftn-trigger-add-to-cart', handler);
-  }, [handleAddToCart]);
+  }, [showStickyBar, product, displayPrice, selectedSize, isAdding, isCompletelyOutOfStock]);
 
   const handleBuyNow = () => {
     if (!product) return;
@@ -367,15 +452,19 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
       return;
     }
 
+    const cartName = selectedVariant && selectedVariant.colour_name !== 'Standard'
+      ? `${product.name} (${selectedVariant.colour_name})`
+      : product.name;
+
     addItem({
       id: product.id,
-      name: product.name,
+      name: cartName,
       slug: product.slug,
-      price: product.price,
+      price: displayPrice,
       compare_price: product.compare_price,
-      image: product.images[0] || '',
+      image: displayImages[0] || product.images[0] || '',
       size: selectedSize,
-      stock_quantity: product.stock_quantity,
+      stock_quantity: selectedVariant?.stock_quantity ?? product.stock_quantity,
     }, quantity);
 
     router.push('/checkout');
@@ -425,27 +514,27 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
           {/* Mobile Carousel (Hidden on Desktop) */}
           <div className="block md:hidden relative w-full aspect-[3/4] bg-zinc-950 border border-zinc-900/60 overflow-hidden">
             <SignatureGallery
-              images={product.images}
+              images={displayImages}
               activeIndex={carouselIndex}
               onChangeIndex={(idx) => {
                 setCarouselIndex(idx);
-                setActiveImage(product.images[idx]);
+                setActiveImage(displayImages[idx]);
               }}
               aspectClass="aspect-[3/4]"
               sizes="(max-width: 768px) 100vw, 50vw"
               enableDrag={true}
               imageWidth={800}
               overlayLeft={
-                product.compare_price && product.compare_price > product.price ? (
+                product.compare_price && product.compare_price > displayPrice ? (
                   <span className="border border-brand-offwhite/30 text-brand-offwhite text-[9px] tracking-[0.2em] font-semibold py-1 px-2.5 uppercase bg-brand-black/60 backdrop-blur-sm">
                     Sale
                   </span>
                 ) : null
               }
               overlayRight={
-                product.images.length > 1 ? (
+                displayImages.length > 1 ? (
                   <div className="bg-brand-black/80 border border-zinc-800 text-[10px] font-mono text-brand-offwhite px-2.5 py-1 font-bold rounded tracking-widest uppercase">
-                    {carouselIndex + 1} / {product.images.length}
+                    {carouselIndex + 1} / {displayImages.length}
                   </div>
                 ) : null
               }
@@ -455,9 +544,9 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
           {/* Desktop Layout (Hidden on Mobile) */}
           <div className="hidden md:flex flex-row gap-4 w-full">
             {/* Vertical thumbnail rail */}
-            {product.images.length > 1 && (
+            {displayImages.length > 1 && (
               <div className="w-20 flex-shrink-0 flex flex-col gap-2.5 max-h-[500px] overflow-y-auto scrollbar-none pr-1">
-                {product.images.map((img, idx) => (
+                {displayImages.map((img: string, idx: number) => (
                   <button
                     key={idx}
                     onClick={() => setActiveImage(img)}
@@ -479,10 +568,10 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
             {/* Main active image frame */}
             <div className="pdp-main-image flex-1 aspect-[3/4] bg-zinc-950 rounded-none overflow-hidden border border-zinc-900/60 relative group">
               <SignatureGallery
-                images={product.images}
-                activeIndex={product.images.indexOf(activeImage) !== -1 ? product.images.indexOf(activeImage) : 0}
+                images={displayImages}
+                activeIndex={displayImages.indexOf(activeImage) !== -1 ? displayImages.indexOf(activeImage) : 0}
                 onChangeIndex={(idx) => {
-                  setActiveImage(product.images[idx]);
+                  setActiveImage(displayImages[idx]);
                   setCarouselIndex(idx);
                 }}
                 aspectClass="aspect-[3/4]"
@@ -491,7 +580,7 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
                 imageWidth={1200}
                 layoutId={`product-image-${product.slug}`}
                 overlayLeft={
-                  product.compare_price && product.compare_price > product.price ? (
+                  product.compare_price && product.compare_price > displayPrice ? (
                     <span className="border border-brand-offwhite/30 text-brand-offwhite text-[9px] tracking-[0.2em] font-semibold py-1 px-2.5 uppercase bg-brand-black/60 backdrop-blur-sm">
                       Sale
                     </span>
@@ -514,15 +603,60 @@ export default function ProductDetailClient({ params, initialProduct, initialRel
 
             {/* Pricing */}
             <div className="flex items-center gap-3">
-              <span className="text-xl md:text-2xl font-bold text-brand-offwhite">₹{Math.round(product.price / 100).toLocaleString('en-IN')}</span>
+              <span className="text-xl md:text-2xl font-bold text-brand-offwhite">₹{Math.round(displayPrice / 100).toLocaleString('en-IN')}</span>
               {product.compare_price && (
                 <span className="text-sm md:text-base text-zinc-500 line-through">₹{Math.round(product.compare_price / 100).toLocaleString('en-IN')}</span>
               )}
             </div>
           </div>
 
-          {/* Size & Action Buttons block moved directly after Pricing */}
+          {/* Colour Swatches & Size Selector Block */}
           <div className="space-y-6 pt-4">
+            {/* Colour Swatches */}
+            {product.variants && product.variants.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest">
+                  <span className="text-zinc-400">
+                    Colour: <span className="text-brand-offwhite">{selectedVariant?.colour_name || 'Standard'}</span>
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2.5">
+                  {product.variants.map((v) => {
+                    const isSelected = selectedVariant?.id === v.id || selectedVariant?.colour_name === v.colour_name;
+                    const vStockTotal = getVariantTotalStock(v);
+                    const isOutOfStock = vStockTotal <= 0;
+
+                    return (
+                      <button
+                        key={v.id || v.colour_name}
+                        type="button"
+                        onClick={() => handleVariantSelect(v)}
+                        className={`group relative flex items-center gap-2 px-3.5 py-2.5 border text-xs font-bold uppercase transition-all rounded-none ${
+                          isOutOfStock
+                            ? 'border-zinc-850 bg-zinc-950/70 text-zinc-600'
+                            : isSelected
+                            ? 'border-white bg-white text-black font-extrabold shadow'
+                            : 'border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-500'
+                        }`}
+                      >
+                        <span
+                          className={`w-3.5 h-3.5 rounded-full border shrink-0 ${
+                            isSelected ? 'border-black' : 'border-zinc-500'
+                          }`}
+                          style={{ backgroundColor: v.colour_hex || '#18181B' }}
+                        />
+                        <span>{v.colour_name}</span>
+                        {isOutOfStock && (
+                          <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-500 line-through">
+                            Out of Stock
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {/* Size Selector */}
             <div id="size-selector-anchor" className="space-y-3">
               <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest">

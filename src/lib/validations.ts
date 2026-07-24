@@ -98,25 +98,40 @@ export const trackShipmentSchema = z.object({
   awb: z.string().min(1)
 });
 
-// Admin Product Create/Update Schema
-export const adminProductSchema = z.object({
-  name: z.string().min(2).max(100),
-  slug: z.string().min(2).max(100).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric and hyphens'),
-  description: z.string().min(10).max(1000),
-  price: z.number().positive(),
-  compare_price: z.number().positive().optional(),
-  category: z.string().min(2),
-  subcategory: z.string().min(2).optional().nullable(),
-  gender: z.string().min(2),
-  images: z.array(z.string().url()).min(1),
+// Product Variant Schema
+export const productVariantSchema = z.object({
+  id: z.string().optional(),
+  colour_name: z.string().min(1, 'Colour name is required'),
+  colour_hex: z.string().optional().nullable(),
+  images: z.array(z.string().min(1)).min(1, 'At least one image is required per variant'),
   sizes: z.array(SizeEnum).min(1),
   stock_quantity: z.record(SizeEnum, z.number().int().nonnegative()),
+  sku: z.string().min(1, 'SKU is required'),
+  price_override: z.number().nonnegative().optional().nullable(),
+  is_active: z.boolean().optional().default(true),
+});
+
+// Admin Product Create/Update Schema
+export const adminProductSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(150),
+  slug: z.string().min(2).max(150).transform((val) => val.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')),
+  description: z.string().min(1, 'Description is required'),
+  price: z.number().positive('Price must be greater than 0'),
+  base_price: z.number().positive().optional(),
+  compare_price: z.number().nonnegative().optional().nullable(),
+  category: z.string().min(1, 'Category is required'),
+  subcategory: z.string().optional().nullable(),
+  gender: z.string().min(1, 'Gender is required'),
+  images: z.array(z.string().min(1)).default([]),
+  sizes: z.array(SizeEnum).default(['XS', 'S', 'M', 'L', 'XL', 'XXL']),
+  stock_quantity: z.record(SizeEnum, z.number().int().nonnegative()).default({ XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 }),
   is_featured: z.boolean().default(false),
   is_active: z.boolean().default(true),
   weight_grams: z.number().int().min(1, 'Product weight is required and must be at least 1g'),
   length_cm: z.number().int().min(1).optional().nullable(),
   breadth_cm: z.number().int().min(1).optional().nullable(),
   height_cm: z.number().int().min(1).optional().nullable(),
+  variants: z.array(productVariantSchema).optional(),
 });
 
 // Admin Order Status Update Schema

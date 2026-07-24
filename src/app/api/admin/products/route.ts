@@ -27,8 +27,10 @@ export async function POST(request: Request) {
     // Validate request schema
     const validationResult = adminProductSchema.safeParse(body);
     if (!validationResult.success) {
+      console.error('Admin product creation validation error:', JSON.stringify(validationResult.error.format()));
+      const firstIssue = validationResult.error.issues[0]?.message || 'Invalid product details';
       return NextResponse.json(
-        { error: 'Invalid product details', details: validationResult.error.format() },
+        { error: firstIssue, details: validationResult.error.format() },
         { status: 400 }
       );
     }
@@ -37,9 +39,12 @@ export async function POST(request: Request) {
     const newProduct = await dbService.createProduct(validationResult.data as any);
 
     return NextResponse.json({ success: true, product: newProduct });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Admin products POST exception:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -83,8 +88,10 @@ export async function PATCH(request: Request) {
     const partialProductSchema = adminProductSchema.partial();
     const validationResult = partialProductSchema.safeParse(body);
     if (!validationResult.success) {
+      console.error('Admin product patch validation error:', JSON.stringify(validationResult.error.format()));
+      const firstIssue = validationResult.error.issues[0]?.message || 'Invalid update inputs';
       return NextResponse.json(
-        { error: 'Invalid update inputs', details: validationResult.error.format() },
+        { error: firstIssue, details: validationResult.error.format() },
         { status: 400 }
       );
     }
@@ -93,9 +100,12 @@ export async function PATCH(request: Request) {
     const updatedProduct = await dbService.updateProduct(id, validationResult.data as any);
 
     return NextResponse.json({ success: true, product: updatedProduct });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Admin products PATCH exception:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 

@@ -1,9 +1,26 @@
+export interface ProductVariant {
+  id: string;
+  product_id: string;
+  colour_name: string;
+  colour_hex?: string | null;
+  images: string[];
+  sizes: string[];
+  stock_quantity: Record<string, number>;
+  stock_qty?: number;
+  sku: string;
+  price_override?: number | null;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
   slug: string;
   description: string;
-  price: number;
+  price: number; // base price in paise (aliased to base_price)
+  base_price?: number;
   compare_price?: number;
   category: string; // tees, hoodies, joggers, accessories
   subcategory?: string;
@@ -19,6 +36,7 @@ export interface Product {
   breadth_cm?: number | null;
   height_cm?: number | null;
   created_at?: string;
+  variants?: ProductVariant[];
 }
 
 export interface Category {

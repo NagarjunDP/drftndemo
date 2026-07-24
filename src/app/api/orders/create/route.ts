@@ -179,7 +179,8 @@ export async function POST(request: Request) {
     try {
       const { tryClaimUnitSafe } = await import('@/lib/stock-gate');
       for (const item of items) {
-        const result = await tryClaimUnitSafe(item.productId, item.size, item.quantity);
+        const lockTargetId = (item as any).variantId || item.productId;
+        const result = await tryClaimUnitSafe(lockTargetId, item.size, item.quantity);
         if (!result.success) {
           allClaimed = false;
           failedItemSize = item.size;
@@ -187,7 +188,7 @@ export async function POST(request: Request) {
           break;
         }
         // Track what we claimed so we can roll back on failure
-        itemsToRelease.push({ productId: item.productId, size: item.size, quantity: item.quantity });
+        itemsToRelease.push({ productId: lockTargetId, size: item.size, quantity: item.quantity });
       }
     } catch (claimErr) {
       console.error('Redis claim service failed (failing open):', claimErr);

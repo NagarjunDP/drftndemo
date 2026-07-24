@@ -15,20 +15,29 @@ export default function SmoothScrollProvider({ children }: SmoothScrollProviderP
 
     gsap.registerPlugin(ScrollTrigger);
 
-    // Initialize Lenis smooth scroll engine with damped feel
+    // Initialize Lenis smooth scroll engine tuned for mobile lerp and touch inertia
     const lenis = new Lenis({
       duration: 1.2,
-      lerp: 0.1,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: 'vertical',
       gestureOrientation: 'vertical',
       smoothWheel: true,
+      syncTouch: true,
+      syncTouchLerp: 0.1,
+      touchInertiaExponent: 1.7,
+      touchMultiplier: 1.2,
       wheelMultiplier: 1.0,
-      touchMultiplier: 1.5,
+      infinite: false,
     });
 
-    // Synchronize Lenis scroll updates with GSAP ScrollTrigger and emit sitewide scroll events
+    // Synchronize Lenis scroll updates with GSAP ScrollTrigger and dynamically smooth fast touch flicks
     lenis.on('scroll', (e) => {
+      // Dynamic lerp dampening for velocity spikes on fast touch flicks
+      if (Math.abs(e.velocity) > 2.5) {
+        lenis.options.syncTouchLerp = 0.06;
+      } else {
+        lenis.options.syncTouchLerp = 0.1;
+      }
       ScrollTrigger.update();
       window.dispatchEvent(
         new CustomEvent('drftn-scroll', {
