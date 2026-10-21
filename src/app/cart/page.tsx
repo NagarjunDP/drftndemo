@@ -337,7 +337,7 @@ export default function CartPage() {
                 type="text"
                 value={promoInput}
                 onChange={(e) => setPromoInput(e.target.value)}
-                placeholder="DRFTN10 / BLRSTREET"
+                placeholder="DRIFTMODEON40 / BLRSTREET"
                 className="flex-1 bg-brand-graphite border border-brand-muted text-brand-offwhite py-2.5 px-4 text-xs uppercase font-bold tracking-wider"
               />
               <button
@@ -348,7 +348,7 @@ export default function CartPage() {
               </button>
             </form>
             <p className="text-[10px] text-brand-stone leading-relaxed font-body font-light">
-              * Promo codes cannot be combined. Min order values apply. Try codes: <strong className="text-brand-stone font-semibold">DRFTN10</strong> (10% off) or <strong className="text-brand-stone font-semibold">BLRSTREET</strong> (₹250 off on orders &gt; ₹1499).
+              * Promo codes cannot be combined. Min order values apply. Try codes: <strong className="text-brand-stone font-semibold">DRIFTMODEON40</strong> (40% off on first order) or <strong className="text-brand-stone font-semibold">BLRSTREET</strong> (₹250 off on orders &gt; ₹1499).
             </p>
           </div>
         </div>

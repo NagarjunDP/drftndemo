@@ -438,7 +438,7 @@ export async function POST(request: Request) {
     let discountAmount = 0;
     let validatedCode: string | undefined = undefined;
 
-    const isDriftOrderCode = cleanCode && (cleanCode === 'DRIFTMODEON30' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT'));
+    const isDriftOrderCode = cleanCode && (cleanCode === 'DRIFTMODEON40' || cleanCode === 'DRIFTMODEON30' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT'));
 
     if (isDriftOrderCode) {
       const [settings] = await db
@@ -447,7 +447,7 @@ export async function POST(request: Request) {
         .where(eq(schema.driftModeSettings.id, 1))
         .limit(1);
 
-      const dPercent = settings?.discount_percent || 30;
+      const dPercent = settings?.discount_percent || 40;
       discountAmount = Math.round(calculatedSubtotal * (dPercent / 100));
       discountAmount = Math.min(discountAmount, calculatedSubtotal);
       validatedCode = cleanCode;
@@ -469,12 +469,12 @@ export async function POST(request: Request) {
       }
 
       // First-order welcome discount check
-      let signupDiscountCode = 'DRFTN10';
+      let signupDiscountCode = 'DRIFTMODEON40';
       dbSettings.forEach((row: any) => {
         if (row.key === 'signup_discount_code') signupDiscountCode = row.value.toUpperCase().trim();
       });
 
-      const isFirstOrderCode = !!cleanCode && (cleanCode === signupDiscountCode || cleanCode.includes('WELCOME') || cleanCode.includes('FIRST'));
+      const isFirstOrderCode = !!cleanCode && (cleanCode === signupDiscountCode || cleanCode === 'DRFTN40' || cleanCode === 'DRFTN10' || cleanCode.includes('WELCOME') || cleanCode.includes('FIRST'));
 
       if (isFirstOrderCode) {
         const emailToMatch = customerInfo.email ? customerInfo.email.toLowerCase().trim() : '';

@@ -14,7 +14,7 @@ export async function GET() {
       .where(eq(schema.settings.key, 'signup_discount_code'))
       .limit(1);
 
-    const targetCode = setting?.value || 'DRFTN10';
+    const targetCode = setting?.value || 'DRIFTMODEON40';
 
     const [discount] = await db
       .select()
@@ -28,8 +28,8 @@ export async function GET() {
     if (!discount) {
       // Fallback details if code not found in DB
       return NextResponse.json({
-        code: 'DRFTN10',
-        value: 10,
+        code: 'DRIFTMODEON40',
+        value: 40,
         type: 'percent',
       });
     }
@@ -42,8 +42,8 @@ export async function GET() {
   } catch (error) {
     console.error('Signup Discount API Error:', error);
     return NextResponse.json({
-      code: 'DRFTN10',
-      value: 10,
+      code: 'DRIFTMODEON40',
+      value: 40,
       type: 'percent',
     });
   }

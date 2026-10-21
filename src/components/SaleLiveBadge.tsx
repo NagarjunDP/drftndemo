@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 const PHRASES = [
   { text: 'LIVE', fontSize: 'text-[11px] sm:text-[12px] tracking-widest' },
   { text: 'DRIFT WITH US', fontSize: 'text-[8.5px] sm:text-[9.5px] tracking-wider' },
-  { text: '20% OFF', fontSize: 'text-[11px] sm:text-[12px] tracking-widest' },
+  { text: '40% OFF', fontSize: 'text-[11px] sm:text-[12px] tracking-widest' },
 ];
 
 export default function SaleLiveBadge() {

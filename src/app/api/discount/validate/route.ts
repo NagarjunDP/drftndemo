@@ -16,8 +16,8 @@ export async function POST(request: Request) {
     const { code, subtotal, email, phone } = validationResult.data;
     const cleanCode = code.toUpperCase().trim();
 
-    // Check if Drift Mode coupon (DRIFTMODEON30, DRIFT-*)
-    const isDriftCode = cleanCode === 'DRIFTMODEON30' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT');
+    // Check if Drift Mode coupon (DRIFTMODEON40, DRIFTMODEON30, DRIFT-*)
+    const isDriftCode = cleanCode === 'DRIFTMODEON40' || cleanCode === 'DRIFTMODEON30' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT');
 
     if (isDriftCode) {
       const [settings] = await db
@@ -60,9 +60,9 @@ export async function POST(request: Request) {
       return NextResponse.json({
         valid: true,
         discount_type: 'percent',
-        discount_value: settings.discount_percent || 30,
+        discount_value: settings.discount_percent || 40,
         max_discount_amount: null,
-        message: `DRIFT MODE — ${settings.discount_percent || 30}% OFF APPLIED`,
+        message: `DRIFT MODE — ${settings.discount_percent || 40}% OFF APPLIED`,
       });
     }
 
@@ -102,8 +102,8 @@ export async function POST(request: Request) {
       .where(eq(schema.settings.key, 'signup_discount_code'))
       .limit(1);
     
-    const signupCode = (signupSetting?.value || 'DRFTN10').toUpperCase().trim();
-    const isFirstOrderCode = cleanCode === signupCode || cleanCode.includes('WELCOME') || cleanCode.includes('FIRST');
+    const signupCode = (signupSetting?.value || 'DRIFTMODEON40').toUpperCase().trim();
+    const isFirstOrderCode = cleanCode === signupCode || cleanCode === 'DRFTN40' || cleanCode === 'DRFTN10' || cleanCode.includes('WELCOME') || cleanCode.includes('FIRST');
 
     if (isFirstOrderCode && (email || phone)) {
       const conditions = [];

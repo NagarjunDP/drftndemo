@@ -13,7 +13,7 @@ export default function LoginIncentivePopup() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [offerText, setOfferText] = useState('GET 10% OFF YOUR FIRST ORDER');
+  const [offerText, setOfferText] = useState('GET 40% OFF YOUR FIRST ORDER');
   const [isPushPromptOpen, setIsPushPromptOpen] = useState(false);
 
   const isAllowedPage = pathname === '/' || pathname === '/shop';

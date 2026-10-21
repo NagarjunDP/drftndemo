@@ -14,7 +14,7 @@ async function ensureTables() {
       CREATE TABLE IF NOT EXISTS drift_mode_settings (
         id SERIAL PRIMARY KEY,
         is_active BOOLEAN NOT NULL DEFAULT true,
-        discount_percent INTEGER NOT NULL DEFAULT 30,
+        discount_percent INTEGER NOT NULL DEFAULT 40,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
@@ -33,10 +33,10 @@ async function ensureTables() {
       ALTER TABLE drift_mode_coupons ADD COLUMN IF NOT EXISTS popup_shown_count INTEGER NOT NULL DEFAULT 0;
 
       INSERT INTO drift_mode_settings (id, is_active, discount_percent)
-      VALUES (1, true, 30)
+      VALUES (1, true, 40)
       ON CONFLICT (id) DO NOTHING;
 
-      UPDATE drift_mode_settings SET discount_percent = 30 WHERE id = 1 AND (discount_percent IS NULL OR discount_percent = 20);
+      UPDATE drift_mode_settings SET discount_percent = 40 WHERE id = 1 AND (discount_percent IS NULL OR discount_percent = 20 OR discount_percent = 30);
       DELETE FROM discount_codes WHERE code IN ('DRIFTMODEON20', 'DRFTNMODEON20', 'DRIFTMODE20');
     `);
   } catch (err) {
