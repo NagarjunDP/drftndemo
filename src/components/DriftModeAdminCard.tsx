@@ -20,7 +20,7 @@ export const DriftModeAdminCard: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setIsActive(!!data.is_active);
-        setDiscountPercent(data.discount_percent || 40);
+        setDiscountPercent(data.discount_percent || 10);
         setStats(data.stats || { totalCodes: 0, redeemedCodes: 0, conversionRate: 0 });
       }
     } catch (err) {

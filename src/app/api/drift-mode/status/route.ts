@@ -14,7 +14,7 @@ async function ensureTables() {
       CREATE TABLE IF NOT EXISTS drift_mode_settings (
         id SERIAL PRIMARY KEY,
         is_active BOOLEAN NOT NULL DEFAULT true,
-        discount_percent INTEGER NOT NULL DEFAULT 40,
+        discount_percent INTEGER NOT NULL DEFAULT 10,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
@@ -36,8 +36,8 @@ async function ensureTables() {
       VALUES (1, true, 40)
       ON CONFLICT (id) DO NOTHING;
 
-      UPDATE drift_mode_settings SET discount_percent = 40 WHERE id = 1 AND (discount_percent IS NULL OR discount_percent = 20 OR discount_percent = 30);
-      DELETE FROM discount_codes WHERE code IN ('DRIFTMODEON20', 'DRFTNMODEON20', 'DRIFTMODE20');
+      UPDATE drift_mode_settings SET discount_percent = 10 WHERE id = 1;
+      DELETE FROM discount_codes WHERE code IN ('DRIFTMODEON40', 'DRIFTMODEON30', 'DRIFTMODEON20', 'DRFTNMODEON40', 'DRFTNMODEON20', 'DRIFTMODE20');
     `);
   } catch (err) {
     console.warn('[DriftMode ensureTables warning]:', err);
@@ -103,7 +103,7 @@ export async function GET() {
 
     return NextResponse.json({
       is_active: settings ? settings.is_active : true,
-      discount_percent: settings ? settings.discount_percent : 30,
+      discount_percent: settings ? settings.discount_percent : 10,
       popup_shown_count: popupShownCount,
       code_generated: codeGenerated,
       code_used: codeUsed,
@@ -112,7 +112,7 @@ export async function GET() {
     console.error('[DriftMode GET status error]:', error);
     return NextResponse.json({
       is_active: true,
-      discount_percent: 30,
+      discount_percent: 10,
       popup_shown_count: 0,
       code_generated: false,
       code_used: false,

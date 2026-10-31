@@ -393,7 +393,7 @@ export const auditLogs = pgTable('audit_logs', {
 export const driftModeSettings = pgTable("drift_mode_settings", {
   id: serial("id").primaryKey(),
   is_active: boolean("is_active").notNull().default(false),
-  discount_percent: integer("discount_percent").notNull().default(40),
+  discount_percent: integer("discount_percent").notNull().default(10),
   updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -423,5 +423,4 @@ export const uniqueVisitors = pgTable("unique_visitors", {
   index('unique_visitors_created_month_idx').on(t.created_month),
   index('unique_visitors_last_seen_at_idx').on(t.last_seen_at),
 ]);
-
 
