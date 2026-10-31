@@ -45,7 +45,7 @@ export const DriftModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (res.ok) {
         const data = await res.json();
         setIsActive(!!data.is_active);
-        setDiscountPercent(data.discount_percent || 40);
+        setDiscountPercent(data.discount_percent || 10);
         setPopupShownCount(data.popup_shown_count || 0);
         setCodeGenerated(!!data.code_generated);
         setCodeUsed(!!data.code_used);

@@ -8,7 +8,7 @@ import { Product, Category, Order, DiscountCode, StoreSettings, ContactSubmissio
 // so a price/stock change in instance A was invisible to instance B for up to 60s.
 // Redis is shared across all instances — one invalidation busts all of them.
 // ─────────────────────────────────────────────────────────────────────────────
-const PRODUCT_CACHE_KEY = 'dbservice:products:active:v1';
+const PRODUCT_CACHE_KEY = 'dbservice:products:active:v2';
 const PRODUCT_CACHE_TTL_SEC = 60;
 
 async function getProductsFromRedisCache(): Promise<any | null> {

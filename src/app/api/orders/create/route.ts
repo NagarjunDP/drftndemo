@@ -438,16 +438,20 @@ export async function POST(request: Request) {
     let discountAmount = 0;
     let validatedCode: string | undefined = undefined;
 
-    const isDriftOrderCode = cleanCode && (cleanCode === 'DRIFTMODEON40' || cleanCode === 'DRIFTMODEON30' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT'));
+    const isDriftOrderCode = cleanCode && (cleanCode === 'DRFTNMODEON10' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT'));
 
     if (isDriftOrderCode) {
+      if (calculatedSubtotal < 149900) {
+        return NextResponse.json({ error: 'This coupon requires a minimum order of ₹1499' }, { status: 400 });
+      }
+
       const [settings] = await db
         .select()
         .from(schema.driftModeSettings)
         .where(eq(schema.driftModeSettings.id, 1))
         .limit(1);
 
-      const dPercent = settings?.discount_percent || 40;
+      const dPercent = settings?.discount_percent || 10;
       discountAmount = Math.round(calculatedSubtotal * (dPercent / 100));
       discountAmount = Math.min(discountAmount, calculatedSubtotal);
       validatedCode = cleanCode;
@@ -469,7 +473,7 @@ export async function POST(request: Request) {
       }
 
       // First-order welcome discount check
-      let signupDiscountCode = 'DRIFTMODEON40';
+      let signupDiscountCode = 'DRFTNMODEON10';
       dbSettings.forEach((row: any) => {
         if (row.key === 'signup_discount_code') signupDiscountCode = row.value.toUpperCase().trim();
       });
